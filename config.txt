@@ -1,0 +1,21 @@
+[readinfo]
+samplename=6-27-1
+readfile1=/mnt/fdknas01/seq-reads/M01750_0573/6-27-1_S2_L001_R1_001.fastq.gz
+readfile2=/mnt/fdknas01/seq-reads/M01750_0573/6-27-1_S2_L001_R2_001.fastq.gz
+sequencing_platform=NextSeq
+vector=AAGCAGTGGTATCAACGCAGAGTAC
+cellindex_file=/mnt/fdknas01/users/Raghavendra/single_cell/cell-index.list1.txt
+mt_length=12
+isolator_seq=ACG
+primer_bed=/mnt/fdknas01/users/Raghavendra/single_cell/Primers_bed/Singh.primers.bed
+seq_type=Targeted
+
+[programs]
+star=/qgen/home/jdeng/download/STAR-2.5.0b/bin/Linux_x86_64_static/STAR
+samtools=/qgen/home/rpadmanabhan/bin/samtools
+
+[human]
+genome_dir=/qgen/home/jdeng/new_star_index/human38_gencode/
+
+[star]
+params=--runMode alignReads --genomeLoad LoadAndKeep --runThreadN 6 --outSamtype BAM SortedByCoordinate --limitBamsortRAM 16000000000 --alignIntronMax 200000 --alignMatesGapMax 200000 --alignSJDBoverhangMin 16 --sjdbOverhang 149 --outSAMunmapped Within --outSAMprimaryFlag AllBestScore --outSAMmultNmax 1
