@@ -4,6 +4,8 @@ import io
 import os
 import editdistance
 import collections
+import regex
+import re
 from extract_multiplex_region import open_by_magic
 
 """
@@ -18,6 +20,43 @@ for downstream anaylsis.
 ## 3. Improve runtime, currently takes a ~64 secs to multiplex and write fastqs
 ## for a readset of size 2 million reads
 ## 4. Write R2 fastq reads as well
+
+
+def benchmark(func):
+    '''
+    A decorator that prints the time a function takes
+    to execute.
+    :param func func: function to decorate
+    :return: a function object
+    :rtype: func
+    '''
+    import time
+    def wrapper(*args, **kwargs):
+        t = time.clock()
+        res = func(*args, **kwargs)
+        print func.__name__, time.clock()-t
+        return res
+
+    return wrapper
+
+def trim_read(read,seq_pattern=r'^([ACGTN]+[CGTN])([A]{5,}GCA[ACGNT]*$|[A]{4,}$)'):
+    ''' Trim a read for a given sequence, will make this function more generic
+    in the future , for now this will simply chop off the polyA tail from R1
+    reads , for e.g. AAGTCTGGCCATGCTTTTTTTTTTTAA ---> AAGTCTGGCCATGC
+
+    :param str read: the read sequence
+    :param str seq_pattern: the sequence to trim off
+    '''
+
+    #complex_pattern = r'([ACGTN]+)([A]{5,}GCA)|([A]{4,18})[ACGT]*$'
+    match = re.match(seq_pattern,read)
+    if match:
+        trimmed_seq = match.group(1)
+        tail = match.group(2)
+        #print "Trimming {polyT} from the read {read}".format(polyT=tail,read=read)
+        return trimmed_seq
+    else:
+        return read
 
 def iterate_fastq(fastq):
     '''
@@ -126,6 +165,7 @@ def write_metrics(metric_file,**metrics):
         for key,val in metrics.items():
             OUT.write('{metric}: {value}\n'.format(metric=key,value=val))
 
+
 def write_fastq(read_info,fastq_loc):
     '''
     Write a fastq file
@@ -139,6 +179,7 @@ def write_fastq(read_info,fastq_loc):
         out = '\n'.join(read_info)
         OUT.write(out)
 
+@benchmark
 def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,read_file1,
                        read_file2):
     '''
@@ -173,10 +214,14 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,
                 fastq_loc = os.path.join(base_dir,cell_index+'_cell_'+
                                          str(cell_num)+
                                          '/cell_'+str(cell_num)+'_R1.fastq')
+
+                read_info=(read_id,trim_read(seq),p,qual)
                 write_fastq(read_info,fastq_loc)
             else:
                 k+=1
         j+=1
+
+
     metric_dict = {
         'num_reads_matched':i,
         'num_reads_not_made_to_downsampling':k,
