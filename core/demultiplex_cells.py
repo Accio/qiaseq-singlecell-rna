@@ -39,17 +39,17 @@ def benchmark(func):
 
     return wrapper
 
-def trim_read(read,seq_pattern=r'^([ACGTN]+[CGTN])([A]{5,}GCA[ACGNT]*$|[A]{4,}$)'):
+def trim_read(read,seq_pattern):
     ''' Trim a read for a given sequence, will make this function more generic
     in the future , for now this will simply chop off the polyA tail from R1
     reads , for e.g. AAGTCTGGCCATGCTTTTTTTTTTTAA ---> AAGTCTGGCCATGC
 
     :param str read: the read sequence
-    :param str seq_pattern: the sequence to trim off
+    :param re object seq_pattern: regular expression to match the polyA tail
     '''
 
     #complex_pattern = r'([ACGTN]+)([A]{5,}GCA)|([A]{4,18})[ACGT]*$'
-    match = re.match(seq_pattern,read)
+    match = seq_pattern.match(read)
     if match:
         trimmed_seq = match.group(1)
         tail = match.group(2)
@@ -71,6 +71,16 @@ def iterate_fastq(fastq):
             yield [line.strip('\n'),IN.readline().strip('\n'),
                    IN.readline().strip('\n'),
                    IN.readline().strip('\n')]
+
+def iterate_fastq2(fastq):
+    '''
+    Read a fastq file and return the 4 lines as a list
+    '''
+
+    with open_by_magic(fastq) as IN:
+        while True:
+            yield [IN.next(),IN.next().strip('\n'),
+                   IN.next(),IN.next().strip('\n')]
 
 def read_multiplex_file(multiplex_file):
     '''
@@ -166,7 +176,7 @@ def write_metrics(metric_file,**metrics):
             OUT.write('{metric}: {value}\n'.format(metric=key,value=val))
 
 
-def write_fastq(read_info,fastq_loc):
+def write_fastq(read_info,OUT):
     '''
     Write a fastq file
 
@@ -175,9 +185,8 @@ def write_fastq(read_info,fastq_loc):
     :return: nothing
     '''
 
-    with open(fastq_loc,'a+') as OUT:
-        out = '\n'.join(read_info)
-        OUT.write(out)
+    #out = '\n'.join(read_info)
+    OUT.write(read_info+'\n')
 
 @benchmark
 def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,read_file1,
@@ -194,33 +203,42 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,
     :return: nothing
     '''
 
+    ## Initialize variables
+    FILES = {}
     i=0
     j=0
     k=0
+    polyA_motif = re.compile(r'^([ACGTN]+[CGTN])([A]{5,}GCA[ACGNT]*$|[A]{4,}$)')
     cell_indices = read_cell_index_file(cell_index_file)
     read_id_hash = create_read_id_hash(cell_multiplex_file)
-    ## Create cell specific dirs
+
+    ## Create cell specific dirs and open file handles
     map(lambda x:os.makedirs(os.path.join(base_dir,x[1]+'_cell_'+str(x[0]+1))),
         enumerate(cell_indices))
-    for read_info in iterate_fastq(read_file1):
-        read_id,seq,p,qual = read_info
+    for cell_index,cell_num in cell_indices.items():
+        fastq=os.path.join(base_dir,cell_index+'_cell_'+
+                                         str(cell_num)+
+                                         '/cell_'+str(cell_num)+'_R1.fastq')
+        FILES[cell_index] = open(fastq,'w')
+
+    ## Iterate over the R1 fastq , check if the cell index is valid,
+    ## 3' polyA tail and write as a fastq file
+    for read_id,seq,p,qual in iterate_fastq2(read_file1):
         key = read_id.split()[0]
         if key in read_id_hash:
             cell_index = read_id_hash[key][0]
-            ret = match_cell_index(cell_indices,cell_index,1)
+            ret = match_cell_index(cell_indices,cell_index,0)
             if ret == True:
                 i+=1
-                cell_num = cell_indices[cell_index]
-                fastq_loc = os.path.join(base_dir,cell_index+'_cell_'+
-                                         str(cell_num)+
-                                         '/cell_'+str(cell_num)+'_R1.fastq')
-
-                read_info=(read_id,trim_read(seq),p,qual)
-                write_fastq(read_info,fastq_loc)
+                read_info = read_id+trim_read(seq,polyA_motif)+'\n'+p+qual
+                write_fastq(read_info,FILES[cell_index])
             else:
                 k+=1
         j+=1
 
+
+    for fastq in FILES:
+        FILES[fastq].close()
 
     metric_dict = {
         'num_reads_matched':i,
@@ -230,4 +248,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,
     }
     write_metrics(os.path.join(base_dir,metric_file),**metric_dict)
 
-create_cell_fastqs(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5],sys.argv[6])
+if __name__ == '__main__':
+    create_cell_fastqs(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5],sys.argv[6])
+
+
