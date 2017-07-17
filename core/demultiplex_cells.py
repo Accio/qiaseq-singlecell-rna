@@ -42,21 +42,22 @@ def benchmark(func):
 def trim_read(read,seq_pattern):
     ''' Trim a read for a given sequence, will make this function more generic
     in the future , for now this will simply chop off the polyA tail from R1
-    reads , for e.g. AAGTCTGGCCATGCTTTTTTTTTTTAA ---> AAGTCTGGCCATGC
+    reads , for e.g. AAGTCTGGCCATGCAAAAAAAAA ---> AAGTCTGGCCAT
 
     :param str read: the read sequence
     :param re object seq_pattern: regular expression to match the polyA tail
+    :return: a tuple of the trimmed sequence and the start position of the trimmed region
+    :rtype: tuple
     '''
 
-    #complex_pattern = r'([ACGTN]+)([A]{5,}GCA)|([A]{4,18})[ACGT]*$'
     match = seq_pattern.match(read)
     if match:
         trimmed_seq = match.group(1)
         tail = match.group(2)
         #print "Trimming {polyT} from the read {read}".format(polyT=tail,read=read)
-        return trimmed_seq
+        return (trimmed_seq,match.start(2))
     else:
-        return read
+        return (read,0)
 
 def iterate_fastq(fastq):
     '''
@@ -79,8 +80,8 @@ def iterate_fastq2(fastq):
 
     with open_by_magic(fastq) as IN:
         while True:
-            yield [IN.next(),IN.next().strip('\n'),
-                   IN.next(),IN.next().strip('\n')]
+            yield [IN.next().rstrip('\n'),IN.next().rstrip('\n'),
+                   IN.next().rstrip('\n'),IN.next().rstrip('\n')]
 
 def read_multiplex_file(multiplex_file):
     '''
@@ -93,7 +94,7 @@ def read_multiplex_file(multiplex_file):
     with open(multiplex_file,'r') as IN:
         IN.readline()
         for line in IN:
-            yield line.strip('\n').split('\t')
+            yield line.rstrip('\n').split('\t')
 
 def match_cell_index(cell_indices,cell_index,edit_dist):
     '''
@@ -161,7 +162,7 @@ def read_cell_index_file(cell_index_file):
     i=1
     with open(cell_index_file,'r') as IN:
         for line in IN:
-            key = line.strip('\n')
+            key = line.rstrip('\n')
             if key in d:
                 raise Exception('Duplicate cell index encountered !')
             d[key] = i
@@ -226,11 +227,15 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,
     for read_id,seq,p,qual in iterate_fastq2(read_file1):
         key = read_id.split()[0]
         if key in read_id_hash:
-            cell_index = read_id_hash[key][0]
+            cell_index,mt = read_id_hash[key]
             ret = match_cell_index(cell_indices,cell_index,0)
             if ret == True:
                 i+=1
-                read_info = read_id+trim_read(seq,polyA_motif)+'\n'+p+qual
+                new_read_id = key+" mi:Z:%s"%mt
+                trimmed_seq,trimming_index = trim_read(seq,polyA_motif)
+                if trimming_index: ## Non zero trimming index
+                    qual = qual[0:trimming_index]
+                read_info = new_read_id+'\n'+trimmed_seq+'\n'+p+'\n'+qual
                 write_fastq(read_info,FILES[cell_index])
             else:
                 k+=1
