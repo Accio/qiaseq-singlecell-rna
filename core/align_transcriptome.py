@@ -53,13 +53,30 @@ def annotate_bam_umi(multiplex_file,in_bam,out_bam,tag_name="mi"):
             read.tags = tuple(temp_tags)
             OUT.write(read)
 
-def find_primer(primer_dict,read_sequence,patterns):
+def diff_finder(s1,s2,max_count):
+    '''
+    '''
+    count = 0
+    i = 0
+    if len(s1) > len(s2):
+        return False
+    while i < len(s1) and count < max_count:
+        if s1[i] != s2[i]:
+            count+=1
+        i+=1
+    return count < max_count
+
+
+def find_primer(primer_dict,read_sequence,read_chrom):
     '''
     '''
 
-    for primer in primer_dict:
-        if regex.match(patterns[primer],read_sequence):
-            return primer_dict[primer]
+    for primer in primer_dict[read_chrom]:
+        #if regex.match(patterns[primer],read_sequence):
+        #if read_sequence.find(primer) != -1:
+        if diff_finder(primer,read_sequence,3):
+        #if compare_seq(primer,read_sequence,2): ## This is 4x faster than the above functions for mismatches
+            return primer_dict[read_chrom][primer]
     return -1
 
 def count_mts(primer_bed,tagged_bam,outfile):
@@ -70,21 +87,23 @@ def count_mts(primer_bed,tagged_bam,outfile):
     :param str outfile: the output file
     '''
 
-    primer_dict = OrderedDict()
+    primer_dict = defaultdict(lambda:defaultdict(dict))
     mt_counter = defaultdict(lambda:defaultdict(int))
     miss = 0
-    pattern = ('^(%s){e<=2}[ACGTN]*')
+    pattern = ('^(%s)[ACGTN]*')
     patterns = {}
     with open(primer_bed) as IN:
         for line in IN:
             chrom,start,stop,seq,strand,gene = line.strip('\n').split('\t')
-            primer_dict[seq] = [chrom,start,stop,seq,gene]
-            patterns[seq] = regex.compile(pattern%seq)
+            primer_dict[chrom][seq] = [chrom,start,stop,seq,gene]
+            #patterns[seq] = regex.compile(pattern%seq)
 
     with pysam.AlignmentFile(tagged_bam,'rb') as IN:
-        for read in IN:
+        chroms = IN.header['SQ']
+        for read in IN.fetch():
             mt = read.get_tag('mi')
-            match = find_primer(primer_dict,read.seq,patterns)
+            chrom = chroms[read.tid]['SN']
+            match = find_primer(primer_dict,read.seq,chrom)
             if match == -1:
                 miss+=1
             else:
@@ -94,13 +113,15 @@ def count_mts(primer_bed,tagged_bam,outfile):
     print "Num reads not matched : %s"%miss
 
     with open(outfile,'w') as OUT:
-        for key in primer_dict:
-            chrom,start,stop,seq,gene = primer_dict[key]
-            mt_count = len(mt_counter[key].keys())
-            print >> OUT,chrom+'\t'+start+'\t'+stop+'\t'+seq+'\t'+gene+'\t'+str(mt_count)
+        for chrom in primer_dict:
+            for primer in primer_dict[chrom]:
+                chrom,start,stop,seq,gene = primer_dict[chrom][primer]
+                mt_count = len(mt_counter[primer])
+                print >> OUT,chrom+'\t'+start+'\t'+stop+'\t'+seq+'\t'+gene+'\t'+str(mt_count)
 
 
 if __name__ == '__main__':
     #star_alignment("/qgen/home/jdeng/download/STAR-2.5.0b/bin/Linux_x86_64_static/STAR",sys.argv[1],sys.argv[2],"--runMode alignReads --genomeLoad LoadAndKeep --runThreadN 6 --outSAMtype BAM SortedByCoordinate --limitBAMsortRAM 16000000000 --alignIntronMax 200000 --alignMatesGapMax 200000 --alignSJDBoverhangMin 16 --sjdbOverhang 149 --outSAMunmapped Within --outSAMprimaryFlag AllBestScore --outSAMmultNmax 1",sys.argv[3])
     #annotate_bam_umis(sys.argv[1],sys.argv[2],sys.argv[3])
+    from edit_distance import compare_seq
     count_mts(sys.argv[1],sys.argv[2],sys.argv[3])
