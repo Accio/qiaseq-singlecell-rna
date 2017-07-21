@@ -1,9 +1,14 @@
 import subprocess
+import itertools
 import sys
+from guppy import hpy
 import pysam
+from pathos.multiprocessing import ProcessingPool as Pool
 import editdistance
 import regex
 from collections import defaultdict,OrderedDict
+from functools import partial
+from Bio.Seq import Seq
 
 def star_alignment(star,genome_dir,output_dir,program_options,r1,r2=None):
     '''
@@ -53,75 +58,129 @@ def annotate_bam_umi(multiplex_file,in_bam,out_bam,tag_name="mi"):
             read.tags = tuple(temp_tags)
             OUT.write(read)
 
-def diff_finder(s1,s2,max_count):
-    '''
-    '''
-    count = 0
-    i = 0
-    if len(s1) > len(s2):
-        return False
-    while i < len(s1) and count < max_count:
-        if s1[i] != s2[i]:
-            count+=1
-        i+=1
-    return count < max_count
 
+def grouper(iterable,n=750000):
+    '''
+    Returns n chunks of an iterable
 
-def find_primer(primer_dict,read_sequence,read_chrom):
+    :param iterator iterable: The iterator to chop up
+    :param int n: the chunks to group the iterator into
+    :yields: iterator , i.e. the n1, n2, ... n chunks of the iterable
     '''
+    it = iter(iterable)
+    while True:
+        chunk = tuple(itertools.islice(it,n))
+        if not chunk:
+            return
+        yield chunk
+
+def iterate_bam_chunks(tagged_bam,chunks=750000):
     '''
+    Iterate over a bam file in chunks (i.e. the number of reads returned
+    at a time)
+
+    :param str tagged_bam: the input bam file with MT tags
+    :param int chunks: the number of reads to process at a time
+    :yields: a list of tuples
+
+    '''
+
+    IN = pysam.AlignmentFile(tagged_bam,'rb')
+    chroms = IN.header['SQ']
+    for reads in grouper(IN.fetch(),chunks):
+        yield [(read.seq, chroms[read.tid]['SN'], read.get_tag('mi')) for read in reads]
+
+def find_primer(primer_dict,patterns,read_tup):
+    '''
+    Find whether a read matches one of the SPE primers used for the
+    sequencing experiment
+
+    :param dict of dict of lists primer_dict: Contains primer info
+    :param a dict of dict  of lists patterns: Contains the compiled regular expression
+                                              for the primer
+    :param tuple read_tup: (read_sequence,chromosome,MT)
+    :returns: a tuple containing the primer and mt info and whether it was a match
+    :rtype: tuple
+    '''
+
+    read_sequence,read_chrom,mt = read_tup
+    if read_chrom not in primer_dict:
+        print "Invalid Chromosome for primer : %s"%(read_chrom)
+        return ('Unknown','Unknown',0)
 
     for primer in primer_dict[read_chrom]:
-        #if regex.match(patterns[primer],read_sequence):
-        #if read_sequence.find(primer) != -1:
-        if diff_finder(primer,read_sequence,3):
-        #if compare_seq(primer,read_sequence,2): ## This is 4x faster than the above functions for mismatches
-            return primer_dict[read_chrom][primer]
-    return -1
+        if regex.match(patterns[read_chrom][primer],read_sequence):
+            return (primer , mt, 1)
+
+    ## Fall back search on other chromosomes
+    for chrom in primer_dict:
+        if chrom == read_chrom:
+            continue
+        for primer in primer_dict[chrom]:
+            if regex.match(patterns[chrom][primer],read_sequence):
+                return (primer, mt, 1)
+
+    return (primer,mt,0)
 
 def count_mts(primer_bed,tagged_bam,outfile):
-    ''' Search for the primers in the bedfile in the tagged bam
-    and count mt for each primer
+    ''' Search for the design spe primers in the tagged bam
+    and count molecular tags for each primer
+    To do : Make this function shorter
+
     :param str primer_bed: a tsv file <chrom><start><stop><primer_seq><strand><gene>
     :param str tagged_bam: a UMI tagged bam file
     :param str outfile: the output file
     '''
+    #hp = hpy()
+    #print "Heap at the begining of the function\n", hp.heap()
 
-    primer_dict = defaultdict(lambda:defaultdict(dict))
+    primer_dict = defaultdict(lambda:defaultdict(list))
     mt_counter = defaultdict(lambda:defaultdict(int))
+    patterns = defaultdict(lambda:defaultdict(list))
     miss = 0
-    pattern = ('^(%s)[ACGTN]*')
-    patterns = {}
+
     with open(primer_bed) as IN:
         for line in IN:
             chrom,start,stop,seq,strand,gene = line.strip('\n').split('\t')
-            primer_dict[chrom][seq] = [chrom,start,stop,seq,gene]
-            #patterns[seq] = regex.compile(pattern%seq)
+            sequence = Seq(seq)
+            revcomp_seq = sequence.reverse_complement().tostring()
+            primer_dict[chrom][seq] = [chrom,start,stop,seq,revcomp_seq,strand,gene]
+            if strand == '+':
+                patterns[chrom][seq] = regex.compile(r'^(%s){e<3}[ACGTN]*'%seq)
+            else:
+                patterns[chrom][seq] = regex.compile(r'^[ACGTN]*(%s){e<3}$'%revcomp_seq)
 
-    with pysam.AlignmentFile(tagged_bam,'rb') as IN:
-        chroms = IN.header['SQ']
-        for read in IN.fetch():
-            mt = read.get_tag('mi')
-            chrom = chroms[read.tid]['SN']
-            match = find_primer(primer_dict,read.seq,chrom)
-            if match == -1:
+    p = Pool(12)
+    i = 1
+    func = partial(find_primer,primer_dict,patterns)
+    ## Iterate over the bam in chunks and process the results in parallel
+    ## The chunking here is mainly to stay within memory bound for very large bam files
+    ## The default chunk size is : 750,000 reads
+    for chunks in iterate_bam_chunks(tagged_bam,chunks=1000000):
+        print "Processing chunk : %i"%i
+        find_primer_results = p.map(func,chunks)
+        for info in find_primer_results:
+            primer,mt,count = info
+            if count == 0:
                 miss+=1
             else:
-                primer_seq = match[-2]
-                mt_counter[primer_seq][mt]+=1
-
+                mt_counter[primer][mt]+=1
+        i+=1
+    p.close()
+    p.join()
     print "Num reads not matched : %s"%miss
 
+    ## Print output results
     with open(outfile,'w') as OUT:
         for chrom in primer_dict:
             for primer in primer_dict[chrom]:
-                chrom,start,stop,seq,gene = primer_dict[chrom][primer]
+                chrom,start,stop,seq,revcomp,strand,gene = primer_dict[chrom][primer]
                 mt_count = len(mt_counter[primer])
-                print >> OUT,chrom+'\t'+start+'\t'+stop+'\t'+seq+'\t'+gene+'\t'+str(mt_count)
-
+                print >> OUT,chrom+'\t'+start+'\t'+stop+'\t'+seq+'\t'+strand+'\t'+gene+'\t'+str(mt_count)
+    #print "Heap at the end of the function\n", hp.heap()
 
 if __name__ == '__main__':
+    ## Need to add command line arguments here
     #star_alignment("/qgen/home/jdeng/download/STAR-2.5.0b/bin/Linux_x86_64_static/STAR",sys.argv[1],sys.argv[2],"--runMode alignReads --genomeLoad LoadAndKeep --runThreadN 6 --outSAMtype BAM SortedByCoordinate --limitBAMsortRAM 16000000000 --alignIntronMax 200000 --alignMatesGapMax 200000 --alignSJDBoverhangMin 16 --sjdbOverhang 149 --outSAMunmapped Within --outSAMprimaryFlag AllBestScore --outSAMmultNmax 1",sys.argv[3])
     #annotate_bam_umis(sys.argv[1],sys.argv[2],sys.argv[3])
-    from edit_distance import compare_seq
     count_mts(sys.argv[1],sys.argv[2],sys.argv[3])
