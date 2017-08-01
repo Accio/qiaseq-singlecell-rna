@@ -190,8 +190,7 @@ def write_fastq(read_info,OUT):
     OUT.write(read_info+'\n')
 
 @benchmark
-def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,read_file1,
-                       read_file2):
+def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,read_file1):
     '''
     Demultiplex and create individual cell fastqs
 
@@ -200,7 +199,6 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,
     :param str cell_index_file: file containing the valid cell indices
     :param str cell_multiplex_file: tsv file <read2_id> <cell_index> <mt>
     :param str read_file1: read1 fastq file
-    :param str read_file2: read2 fastq file
     :return: nothing
     '''
 
@@ -221,7 +219,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,
                                          str(cell_num)+
                                          '/cell_'+str(cell_num)+'_R1.fastq')
         FILES[cell_index] = open(fastq,'w')
-
+g
     ## Iterate over the R1 fastq , check if the cell index is valid,
     ## 3' polyA tail and write as a fastq file
     for read_id,seq,p,qual in iterate_fastq2(read_file1):
@@ -247,13 +245,13 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,
 
     metric_dict = {
         'num_reads_matched':i,
-        'num_reads_not_made_to_downsampling':k,
+        'num_reads_not_made_to_demultiplexing':k,
         'num_reads':j,
         'perc_reads_matched':(float(i)/j)*100
     }
     write_metrics(os.path.join(base_dir,metric_file),**metric_dict)
 
 if __name__ == '__main__':
-    create_cell_fastqs(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5],sys.argv[6])
+    create_cell_fastqs(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5])
 
 
