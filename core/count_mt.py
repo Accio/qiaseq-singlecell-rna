@@ -5,7 +5,7 @@ import pysam
 from pathos.multiprocessing import ProcessingPool as Pool
 import regex
 from collections import defaultdict,OrderedDict
-from functools import Partial
+from functools import partial
 from Bio.Seq import Seq
 
 ## Modules from this project
