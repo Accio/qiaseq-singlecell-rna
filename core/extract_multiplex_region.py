@@ -58,12 +58,10 @@ def iterate_fastq(read2_fastq):
     '''
 
     with open_by_magic(read2_fastq) as IN:
-        for line in IN:
-            read_id = line.strip('\n')
-            read_seq = IN.readline().strip('\n')
-            IN.readline()
-            IN.readline()
-            yield(read_id,read_seq)
+        while True:
+            yield (IN.next().rstrip('\n'),IN.next().rstrip('\n'))
+            IN.next()
+            IN.next()
 
 def find_motif(motif,read_tup):
     '''
