@@ -66,20 +66,6 @@ def iterate_fastq(fastq):
 
     with open_by_magic(fastq) as IN:
         while True:
-            line = IN.readline()
-            if not line:
-                break
-            yield [line.strip('\n'),IN.readline().strip('\n'),
-                   IN.readline().strip('\n'),
-                   IN.readline().strip('\n')]
-
-def iterate_fastq2(fastq):
-    '''
-    Read a fastq file and return the 4 lines as a list
-    '''
-
-    with open_by_magic(fastq) as IN:
-        while True:
             yield [IN.next().rstrip('\n'),IN.next().rstrip('\n'),
                    IN.next().rstrip('\n'),IN.next().rstrip('\n')]
 
@@ -212,17 +198,15 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,
     read_id_hash = create_read_id_hash(cell_multiplex_file)
 
     ## Create cell specific dirs and open file handles
-    map(lambda x:os.makedirs(os.path.join(base_dir,x[1]+'_cell_'+str(x[0]+1))),
+    map(lambda x:os.makedirs(os.path.join(base_dir,'Cell'+str(x[0]+1)+'_'+x[1])),
         enumerate(cell_indices))
     for cell_index,cell_num in cell_indices.items():
-        fastq=os.path.join(base_dir,cell_index+'_cell_'+
-                                         str(cell_num)+
+        fastq=os.path.join(base_dir,'Cell'+str(cell_num)+'_'+cell_index+
                                          '/cell_'+str(cell_num)+'_R1.fastq')
         FILES[cell_index] = open(fastq,'w')
-g
     ## Iterate over the R1 fastq , check if the cell index is valid,
     ## 3' polyA tail and write as a fastq file
-    for read_id,seq,p,qual in iterate_fastq2(read_file1):
+    for read_id,seq,p,qual in iterate_fastq(read_file1):
         key = read_id.split()[0]
         if key in read_id_hash:
             cell_index,mt = read_id_hash[key]
@@ -249,7 +233,7 @@ g
         'num_reads':j,
         'perc_reads_matched':(float(i)/j)*100
     }
-    write_metrics(os.path.join(base_dir,metric_file),**metric_dict)
+    write_metrics(metric_file,**metric_dict)
 
 if __name__ == '__main__':
     create_cell_fastqs(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5])
