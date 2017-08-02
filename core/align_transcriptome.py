@@ -1,5 +1,6 @@
 import subprocess
 import pysam
+import sys
 
 def star_alignment(star,genome_dir,output_dir,program_options,r1,r2=None):
     '''
@@ -24,8 +25,7 @@ def star_alignment(star,genome_dir,output_dir,program_options,r1,r2=None):
     if p.returncode: ## Non zero returncode
         raise subprocess.CalledProcessError(p.returncode,cmd)
 
-
-def annotate_bam_umi(multiplex_file,in_bam,out_bam,tag_name="mi",samtools):
+def annotate_bam_umi(multiplex_file,in_bam,out_bam,tag_name="mi"):
     ''' Annotate a bam file with UMIs, a new UMI tag will be created
 
     :param str multiplex_file: tsv file <read_id> <cell_index> <mt>
@@ -41,12 +41,18 @@ def annotate_bam_umi(multiplex_file,in_bam,out_bam,tag_name="mi",samtools):
             contents = line.rstrip('\n').split('\t')
             tag_hash[contents[0].split()[0][1:]] = contents[2]
 
-    with pysam.AlignmentFile(in_bam,'rb') as IN, pysam.AlignmentFile(out_bam,'wb',template=IN) as OUT:
-        for read in IN:
-            temp_tags = read.tags
-            tag = tag_hash[read.qname]
-            temp_tags.append((tag_name,tag))
-            read.tags = tuple(temp_tags)
-            OUT.write(read)
-    pysam.Index(out_bam)
-
+    try:
+        with pysam.AlignmentFile(in_bam,'rb') as IN, pysam.AlignmentFile(out_bam,'wb',template=IN) as OUT:
+            for read in IN:
+                temp_tags = read.tags
+                tag = tag_hash[read.qname]
+                temp_tags.append((tag_name,tag))
+                read.tags = tuple(temp_tags)
+                OUT.write(read)
+    except Exception as e:
+        if e.message == "file header is empty (mode='rb') - is it SAM/BAM format?": ## An empty bam file
+            print "Empty bam file : %s"%in_bam
+            return
+        else:
+            raise Exception(e)
+    pysam.index(out_bam)
