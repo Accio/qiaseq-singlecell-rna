@@ -9,7 +9,7 @@ from extract_multiplex_region import extract_region
 from demultiplex_cells import create_cell_fastqs
 from align_transcriptome import star_alignment,annotate_bam_umi
 from count_mt import count_mts
-from merge_mt_files import merge_mt_files
+from merge_mt_files import merge_count_files,merge_metric_files
 
 class config(luigi.Config):
     ''' Initialize values from configuration file
@@ -129,7 +129,7 @@ class DeMultiplexer(luigi.Task):
         super(DeMultiplexer,self).__init__(*args,**kwargs)
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
         self.metric_file = os.path.join(self.sample_dir,
-                                       '%s_demultiplex_stats.txt'%self.sample_name)
+                                       '%s_read_stats.txt'%self.sample_name)
         self.target_dir = os.path.join(self.sample_dir,'targets')
         ## The verification file for this task
         self.verification_file = os.path.join(self.target_dir,
@@ -264,6 +264,7 @@ class CountMT(luigi.Task):
         self.bam = os.path.join(self.cell_dir,'Aligned.sortedByCoord.out.bam')
         self.tagged_bam = os.path.join(self.cell_dir,'Aligned.sortedByCoord.out.tagged.bam')
         self.outfile = os.path.join(self.cell_dir,'mt_count.txt')
+        self.primer_metrics = os.path.join(self.cell_dir,'primer_stats.txt')
         self.target_dir = os.path.join(self.sample_dir,'targets')
         ## The verification file for this task
         self.verification_file = os.path.join(self.target_dir,
@@ -280,7 +281,7 @@ class CountMT(luigi.Task):
         '''
         '''
         if os.path.getsize(self.cell_fastq) > 0:
-            count_mts(self.primer_file,self.tagged_bam,self.outfile)
+            count_mts(self.primer_file,self.tagged_bam,self.outfile,self.primer_metrics)
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
 
@@ -314,6 +315,8 @@ class JoinCountFiles(luigi.Task):
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
         self.count_file = os.path.join(self.sample_dir,
                                        self.sample_name+'.mt.counts.txt')
+        self.metric_file = os.path.join(self.sample_dir,
+                                       '%s_read_stats.txt'%self.sample_name)
         ## The verification file for this task
         self.target_dir = os.path.join(self.sample_dir,'targets')
         self.verification_file = os.path.join(self.target_dir,
@@ -353,7 +356,8 @@ class JoinCountFiles(luigi.Task):
         yield dependencies
 
         ## Join the files
-        merge_mt_files(self.sample_dir,self.count_file,len(self.cell_indices))
+        merge_count_files(self.sample_dir,self.count_file,len(self.cell_indices))
+        merge_metric_files(self.sample_dir,self.metric_file,len(self.cell_indices))
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
 

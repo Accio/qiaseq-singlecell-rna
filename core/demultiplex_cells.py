@@ -155,7 +155,7 @@ def read_cell_index_file(cell_index_file):
             i+=1
     return d
 
-def write_metrics(metric_file,**metrics):
+def write_metrics(metric_file,metrics):
     '''
     '''
     with open(metric_file,'w') as OUT:
@@ -193,10 +193,10 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,
     i=0
     j=0
     k=0
-    polyA_motif = re.compile(r'^([ACGTN]+[CGTN])([A]{5,}GCA[ACGNT]*$|[A]{4,}$)')
+    polyA_motif = re.compile(r'^([ACGTN]{42,}[CGTN])([A]{9,}[ACGNT]*$)')
     cell_indices = read_cell_index_file(cell_index_file)
     read_id_hash = create_read_id_hash(cell_multiplex_file)
-
+    reads_to_demultiplex = len(read_id_hash.keys())
     ## Create cell specific dirs and open file handles
     map(lambda x:os.makedirs(os.path.join(base_dir,'Cell'+str(x[0]+1)+'_'+x[1])),
         enumerate(cell_indices))
@@ -227,13 +227,15 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,
     for fastq in FILES:
         FILES[fastq].close()
 
-    metric_dict = {
-        'num_reads_matched':i,
-        'num_reads_not_made_to_demultiplexing':k,
-        'num_reads':j,
-        'perc_reads_matched':(float(i)/j)*100
-    }
-    write_metrics(metric_file,**metric_dict)
+    metric_dict = collections.OrderedDict(
+        [('num_reads',j),
+         ('num_reads_after_region_extraction',reads_to_demultiplex),
+         ('num_reads_after_demultiplexing',i),
+         ('cell_bleeding_ratio',float(k)/i),
+         ('perc_reads_demultiplexed',(float(i)/j)*100)
+        ]
+    )
+    write_metrics(metric_file,metric_dict)
 
 if __name__ == '__main__':
     create_cell_fastqs(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5])

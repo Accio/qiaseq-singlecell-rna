@@ -122,7 +122,7 @@ def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfi
 
     p = multiprocessing.Pool(cores)
     multiplex_len = cell_index_len + mt_len
-    motif = r'((%s){e<=%i}([ACGT]{%i,%i})(ACGT.*))'%(vector,error,multiplex_len-1,multiplex_len+1)
+    motif = r'((%s){e<=%i}([ACGT]{%i,%i})(ACG){s<=1}[ACGT]*)'%(vector,error,multiplex_len-1,multiplex_len+1)
     func = partial(find_motif,motif)
     print "\nLooking for the motif : %s in the sequencing reads.\n"%motif
     ## Print out results , takes in input a list of tuples which are processed in parallel by func()
