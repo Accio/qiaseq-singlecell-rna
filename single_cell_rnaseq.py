@@ -18,24 +18,6 @@ class config(luigi.Config):
     star_params = luigi.Parameter()
     genome_dir = luigi.Parameter()
 
-class CheckDemultiplex(luigi.Target):
-    '''
-    '''
-
-    def __init__(self,file_loc):
-        '''
-        '''
-        self.file_loc = file_loc
-
-    def exists(self):
-        '''
-        '''
-        n=subprocess.check_output('wc -l %s'%file_loc).strip('\n')
-        if n == 4:
-            return True
-        else:
-            return False
-
 class MyExtTask(luigi.ExternalTask):
     ''' Checks whether the file specified exists on disk
     '''
@@ -154,9 +136,7 @@ class DeMultiplexer(luigi.Task):
             print >> OUT,"verification"
 
     def output(self):
-        ''' Hard to determine how many valid fastqs will be demultiplexed
-        Regardless of anything 4 lines should be present in the metric file
-        Checking for that.
+        '''
         '''
         return luigi.LocalTarget(self.verification_file)
 
