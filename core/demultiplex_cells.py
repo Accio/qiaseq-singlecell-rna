@@ -231,7 +231,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,
         [('num_reads',j),
          ('num_reads_after_region_extraction',reads_to_demultiplex),
          ('num_reads_after_demultiplexing',i),
-         ('cell_bleeding_ratio',float(k)/i),
+         ('cell_bleeding_perc',float(k)/(i+k),
          ('perc_reads_demultiplexed',(float(i)/j)*100)
         ]
     )
