@@ -1,7 +1,7 @@
 import regex
 
 def endogenous_seq_match_clean(cigar,primer_len,read_is_reverse,num_flanking_bases=30,cigars_to_ignore=['N','D','H','P'], pattern=regex.compile('([0-9]+)([A-Z])')):
-    '''
+    ''' ## Check if query in gene
     '''
 
     expanded_cigar = []
@@ -19,7 +19,7 @@ def endogenous_seq_match_clean(cigar,primer_len,read_is_reverse,num_flanking_bas
     else:
         cigar_to_search = expanded_cigar[primer_len:(primer_len+num_flanking_bases+1)]
 
-    return (cigar_to_search.count('M') >= 15)
+    return (cigar_to_search.count('M') >= 25)
 
 def endogenous_seq_match(cigar,primer_len):
     '''
@@ -85,10 +85,10 @@ def find_primer(primer_tree,read_tup):
     else:
         loci_to_search = read_pos
 
-    res = primer_tree[read_chrom].search(loci_to_search-1,loci_to_search+1) ## allowing a shift in primer start loci by 1 base pair
+    res = primer_tree[read_chrom].search(loci_to_search-1,loci_to_search+1) ## allowing a shift in primer start loci by 1 base pair , account for soft clip in the begining 
     if res:
         if len(res) > 1:
-            raise Exception("error in primer finding, read spans more than 2 primer loci")
+            raise Exception("error in primer finding, read spans more than 2 primer loci") ## take multiple hits
         else:
             result = res.pop()
             pattern,primer = result.data
