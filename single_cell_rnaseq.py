@@ -8,8 +8,8 @@ sys.path.append(os.path.join(os.path.dirname(
 from extract_multiplex_region import extract_region
 from demultiplex_cells import create_cell_fastqs
 from align_transcriptome import star_alignment,annotate_bam_umi
-from count_mt import count_mts
-from merge_mt_files import merge_count_files,merge_metric_files
+from count_mt import count_mts,count_umis_wts
+from merge_mt_files import merge_count_files,merge_metric_files,merge_count_files_wts,merge_metric_files_wts
 
 class config(luigi.Config):
     ''' Initialize values from configuration file
@@ -17,6 +17,7 @@ class config(luigi.Config):
     star = luigi.Parameter()
     star_params = luigi.Parameter()
     genome_dir = luigi.Parameter()
+    seqtype = luigi.Parameter()
 
 class MyExtTask(luigi.ExternalTask):
     ''' Checks whether the file specified exists on disk
@@ -57,6 +58,10 @@ class ExtractMultiplexRegion(luigi.Task):
         self.target_dir = os.path.join(self.sample_dir,'targets')
         if not os.path.exists(self.target_dir):
             os.makedirs(self.target_dir)
+        ## Create a directory for storing log files
+        self.logdir = os.path.join(self.sample_dir,'logs')
+        if not os.path.exists(self.logdir):
+            os.makedirs(self.logdir)
         ## The verification file for this task
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
@@ -110,8 +115,8 @@ class DeMultiplexer(luigi.Task):
         '''
         super(DeMultiplexer,self).__init__(*args,**kwargs)
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
-        self.metric_file = os.path.join(self.sample_dir,
-                                       '%s_read_stats.txt'%self.sample_name)
+        self.temp_metric_file = os.path.join(self.sample_dir,
+                                       '%s_read_stats.temp.txt'%self.sample_name)
         self.target_dir = os.path.join(self.sample_dir,'targets')
         ## The verification file for this task
         self.verification_file = os.path.join(self.target_dir,
@@ -123,14 +128,19 @@ class DeMultiplexer(luigi.Task):
     def requires(self):
         ''' We need the the ExtractMultiplexRegion task to be finished
         '''
-        return ExtractMultiplexRegion()
+        return self.clone(ExtractMultiplexRegion)
 
     def run(self):
         '''
         '''
-        create_cell_fastqs(self.sample_dir,self.metric_file,
-                                             self.cell_index_file,
-                                             self.multiplex_file,self.R1_fastq)
+        if config().seqtype.upper() == 'WTS':
+            create_cell_fastqs(self.sample_dir,self.temp_metric_file,
+                               self.cell_index_file,self.multiplex_file,
+                               self.R1_fastq,True)
+        else:
+            create_cell_fastqs(self.sample_dir,self.temp_metric_file,
+                               self.cell_index_file,
+                               self.multiplex_file,self.R1_fastq)
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
@@ -187,7 +197,7 @@ class Alignment(luigi.Task):
         Demultiplexing task
         '''
 
-        return DeMultiplexer()
+        return self.clone(DeMultiplexer)
 
     def run(self):
         ''' The commands to run
@@ -201,6 +211,9 @@ class Alignment(luigi.Task):
             ## Check if the bam file has any records ?
             ## Add bam tags
             annotate_bam_umi(self.multiplex_file,self.bam,self.tagged_bam)
+            #if config().seqtype.upper() == 'WTS':
+                #annotate_bam_genes(self.tagged_bam,self.annotated_bam)
+
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
@@ -244,13 +257,17 @@ class CountMT(luigi.Task):
         self.bam = os.path.join(self.cell_dir,'Aligned.sortedByCoord.out.bam')
         self.tagged_bam = os.path.join(self.cell_dir,'Aligned.sortedByCoord.out.tagged.bam')
         self.outfile = os.path.join(self.cell_dir,'mt_count.txt')
-        self.primer_metrics = os.path.join(self.cell_dir,'primer_stats.txt')
+        self.metricsfile = os.path.join(self.cell_dir,'read_stats.txt')
         self.target_dir = os.path.join(self.sample_dir,'targets')
+        self.logdir = os.path.join(self.sample_dir,'logs')
         ## The verification file for this task
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
                                               '.'+str(self.cell_num)+
                                               '.verification.txt')
+        self.logfile = os.path.join(self.logdir,
+                                    self.__class__.__name__+
+                                    '.'+str(self.cell_num)+'.log.txt')
 
     def requires(self):
         ''' The requirement is the completion of the Alignment task
@@ -261,7 +278,13 @@ class CountMT(luigi.Task):
         '''
         '''
         if os.path.getsize(self.cell_fastq) > 0:
-            count_mts(self.primer_file,self.tagged_bam,self.outfile,self.primer_metrics)
+            if config().seqtype.upper() == 'WTS':
+                count_umis_wts(self.primer_file,self.tagged_bam,self.outfile,
+                               self.metricsfile,self.logfile)
+            else:
+                count_mts(self.primer_file,self.tagged_bam,self.outfile,
+                          self.metricsfile)
+
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
 
@@ -295,8 +318,12 @@ class JoinCountFiles(luigi.Task):
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
         self.count_file = os.path.join(self.sample_dir,
                                        self.sample_name+'.mt.counts.txt')
+        self.temp_metric_file = os.path.join(self.sample_dir,
+                                       '%s_read_stats.temp.txt'%self.sample_name)
         self.metric_file = os.path.join(self.sample_dir,
                                        '%s_read_stats.txt'%self.sample_name)
+        self.metric_file_cell = os.path.join(self.sample_dir,
+                                             '%s_cell_stats.txt'%self.sample_name)
         ## The verification file for this task
         self.target_dir = os.path.join(self.sample_dir,'targets')
         self.verification_file = os.path.join(self.target_dir,
@@ -336,8 +363,13 @@ class JoinCountFiles(luigi.Task):
         yield dependencies
 
         ## Join the files
-        merge_count_files(self.sample_dir,self.count_file,len(self.cell_indices))
-        merge_metric_files(self.sample_dir,self.metric_file,len(self.cell_indices))
+        if config().seqtype.upper() == 'WTS':
+            merge_count_files_wts(self.sample_dir,self.count_file,self.sample_name,len(self.cell_indices))
+            merge_metric_files_wts(self.sample_dir,self.temp_metric_file,self.metric_file,self.metric_file_cell,self.sample_name,len(self.cell_indices))
+        else:
+            merge_count_files(self.sample_dir,self.count_file,self.sample_name,len(self.cell_indices))
+            merge_metric_files(self.sample_dir,self.metric_file,len(self.cell_indices))
+
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
 
