@@ -2,6 +2,7 @@ import sys
 import gzip
 import io
 import os
+import errno
 import editdistance
 import collections
 import regex
@@ -19,7 +20,6 @@ for downstream anaylsis.
 ## 2. Manage injestion of parameters
 ## 3. Improve runtime, currently takes a ~64 secs to multiplex and write fastqs
 ## for a readset of size 2 million reads
-## 4. Write R2 fastq reads as well
 
 
 def benchmark(func):
@@ -176,7 +176,8 @@ def write_fastq(read_info,OUT):
     OUT.write(read_info+'\n')
 
 @benchmark
-def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,read_file1):
+def create_cell_fastqs(base_dir,metric_file,cell_index_file,
+                       cell_multiplex_file,read_file1,wts=False):
     '''
     Demultiplex and create individual cell fastqs
 
@@ -185,25 +186,46 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,
     :param str cell_index_file: file containing the valid cell indices
     :param str cell_multiplex_file: tsv file <read2_id> <cell_index> <mt>
     :param str read_file1: read1 fastq file
+    :param bool wts: whether this is for wts
     :return: nothing
     '''
 
     ## Initialize variables
-    FILES = {}
-    i=0
-    j=0
-    k=0
-    polyA_motif = re.compile(r'^([ACGTN]{42,}[CGTN])([A]{9,}[ACGNT]*$)')
+    FASTQS= {}
+    METRICS = {}
+    num_reads=0
+    reads_demultiplexed=0
+    reads_dropped_cellindex=0
+    reads_dropped_size = 0
+    if wts:
+        polyA_motif = re.compile(r'^([ACGTN]*?[CGTN])([A]{9,}[ACGNT]*$)')
+    else:
+        polyA_motif = re.compile(r'^([ACGTN]{42,}[CGTN])([A]{8,}[ACGNT]{1,}$)')
     cell_indices = read_cell_index_file(cell_index_file)
     read_id_hash = create_read_id_hash(cell_multiplex_file)
     reads_to_demultiplex = len(read_id_hash.keys())
     ## Create cell specific dirs and open file handles
-    map(lambda x:os.makedirs(os.path.join(base_dir,'Cell'+str(x[0]+1)+'_'+x[1])),
+    def mkdir_p(path):
+        try:
+            os.makedirs(path)
+        except OSError as exc:
+            if exc.errno == errno.EEXIST and os.path.isdir(path):
+                pass
+            else:
+                raise exc
+    map(lambda x:mkdir_p(os.path.join(base_dir,'Cell'+str(x[0]+1)+'_'+x[1])),
         enumerate(cell_indices))
+
     for cell_index,cell_num in cell_indices.items():
         fastq=os.path.join(base_dir,'Cell'+str(cell_num)+'_'+cell_index+
                                          '/cell_'+str(cell_num)+'_R1.fastq')
-        FILES[cell_index] = open(fastq,'w')
+        metric=os.path.join(base_dir,'Cell'+str(cell_num)+'_'+cell_index+
+                                         '/cell_'+str(cell_num)+'_demultiplex_stats.txt')
+        FASTQS[cell_index] = open(fastq,'w')
+        METRICS[cell_index] = metric
+    ## Store metrics for each cell
+    cell_metrics = collections.defaultdict(lambda:collections.defaultdict(int))
+
     ## Iterate over the R1 fastq , check if the cell index is valid,
     ## 3' polyA tail and write as a fastq file
     for read_id,seq,p,qual in iterate_fastq(read_file1):
@@ -212,27 +234,40 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,cell_multiplex_file,
             cell_index,mt = read_id_hash[key]
             ret = match_cell_index(cell_indices,cell_index,0)
             if ret == True:
-                i+=1
                 new_read_id = key+" mi:Z:%s"%mt
                 trimmed_seq,trimming_index = trim_read(seq,polyA_motif)
                 if trimming_index: ## Non zero trimming index
                     qual = qual[0:trimming_index]
+                if len(trimmed_seq) < 25: ## Drop reads below 25 b.p
+                    reads_dropped_size+=1
+                    num_reads+=1
+                    cell_metrics[cell_index]['num_reads']+=1
+                    continue
                 read_info = new_read_id+'\n'+trimmed_seq+'\n'+p+'\n'+qual
-                write_fastq(read_info,FILES[cell_index])
+                write_fastq(read_info,FASTQS[cell_index])
+                cell_metrics[cell_index]['after_qc_reads']+=1
+                cell_metrics[cell_index]['num_reads']+=1
+                reads_demultiplexed+=1
             else:
-                k+=1
-        j+=1
+                reads_dropped_cellindex+=1
+        num_reads+=1
 
+    for cell in FASTQS:
+        FASTQS[cell].close()
 
-    for fastq in FILES:
-        FILES[fastq].close()
-
+    ## Write out the metrics
+    ## 1. Per cell level
+    for cell,mfile in METRICS.items():
+        write_metrics(mfile,cell_metrics[cell])
+    ## 2. Aggregated across all the cells
     metric_dict = collections.OrderedDict(
-        [('num_reads',j),
+        [('num_reads',num_reads),
          ('num_reads_after_region_extraction',reads_to_demultiplex),
-         ('num_reads_after_demultiplexing',i),
-         ('cell_bleeding_perc',float(k)/(i+k),
-         ('perc_reads_demultiplexed',(float(i)/j)*100)
+         ('num_reads_cellindex_mismatch',reads_dropped_cellindex),
+         ('num_reads_less_than_25bp',reads_dropped_size),
+         ('cell_bleeding_perc',float(reads_dropped_cellindex)/(reads_to_demultiplex)*100),
+         ('perc_reads_demultiplexed',(float(reads_demultiplexed)/num_reads)*100),
+         ('num_reads_demultiplexed_for_alignment',reads_demultiplexed),
         ]
     )
     write_metrics(metric_file,metric_dict)
