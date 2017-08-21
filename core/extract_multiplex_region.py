@@ -80,7 +80,7 @@ def find_motif(motif,read_tup):
     else:
         return (read_id,None)
 
-def print_result(regions,outfile):
+def print_result(regions,outfile,cell_index_len):
     '''
     Output the results as a tsv file
 
@@ -96,14 +96,11 @@ def print_result(regions,outfile):
         for read_id,multiplex_region in regions:
             if multiplex_region:
                 i+=1
-                cell_index = multiplex_region[0:8]
-                mt = multiplex_region[8:]
+                cell_index = multiplex_region[0:cell_index_len]
+                mt = multiplex_region[cell_index_len:]
                 OUT.write("%s\t%s\t%s\n"%(read_id,cell_index,mt))
             else:
                 j+=1
-    print "Found %i reads matching the motif"%i
-    print "Found %i reads NOT matching the motif"%j
-    print "Percentage Reads found : %i"%(i/i+j)
 
 def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfile,cores):
     '''
@@ -126,7 +123,7 @@ def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfi
     func = partial(find_motif,motif)
     print "\nLooking for the motif : %s in the sequencing reads.\n"%motif
     ## Print out results , takes in input a list of tuples which are processed in parallel by func()
-    print_result(p.map(func,iterate_fastq(read2_fastq)),outfile)
+    print_result(p.map(func,iterate_fastq(read2_fastq)),outfile,cell_index_len)
     p.close()
     p.join()
 
