@@ -7,7 +7,7 @@ sys.path.append(os.path.join(os.path.dirname(
     os.path.realpath(__file__)),'core'))
 from extract_multiplex_region import extract_region
 from demultiplex_cells import create_cell_fastqs
-from align_transcriptome import star_alignment,annotate_bam_umi
+from align_transcriptome import star_alignment,star_load_index,star_remove_index,annotate_bam_umi
 from count_mt import count_mts,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files,merge_count_files_wts,merge_metric_files_wts
 
@@ -150,11 +150,57 @@ class DeMultiplexer(luigi.Task):
         '''
         return luigi.LocalTarget(self.verification_file)
 
-class Alignment(luigi.Task):
+class LoadGenomeIndex(luigi.Task):
+    ''' Task for loading genome index for STAR
     '''
-    Task for running STAR for alignment
-    '''
+    ## Define some parameters
+    R1_fastq = luigi.Parameter()
+    R2_fastq = luigi.Parameter()
+    output_dir = luigi.Parameter()
+    sample_name = luigi.Parameter()
+    cell_index_file = luigi.Parameter()
+    primer_file = luigi.Parameter()
+    vector_sequence = luigi.Parameter()
+    isolator = luigi.Parameter()
+    cell_index_len = luigi.IntParameter()
+    mt_len = luigi.IntParameter()
+    num_cores = luigi.IntParameter()
+    num_errors = luigi.IntParameter()
 
+
+    def __init__(self,*args,**kwargs):
+        ''' Class constructor
+        '''
+        super(LoadGenomeIndex,self).__init__(*args,**kwargs)
+        self.sample_dir = os.path.join(self.output_dir,self.sample_name)
+        self.target_dir = os.path.join(self.sample_dir,'targets')
+        ## The verification file for this task
+        self.verification_file = os.path.join(self.target_dir,
+                                              self.__class__.__name__+
+                                              '.verification.txt')
+
+    def requires(self):
+        ''' The dependency for this task is the completion of the
+        Demultiplexing task
+        '''
+        return self.clone(Demultiplexer)
+
+    def run(self):
+        '''
+        '''
+        star_load_index(config().star,config().genome_dir,config().star_load_params)
+        ## Create the verification file
+        with open(self.verification_file,'w') as OUT:
+            print >> OUT,"verification"
+
+    def output(self):
+        ''' The output from this task is the verification task
+        '''
+        return luigi.LocalTarget(self.verification_file)
+
+class Alignment(luigi.Task):
+    ''' Task for running STAR for alignment
+    '''
     ## Define some parameters
     R1_fastq = luigi.Parameter()
     R2_fastq = luigi.Parameter()
@@ -193,16 +239,13 @@ class Alignment(luigi.Task):
                                               '.'+str(self.cell_num)+
                                               '.verification.txt')
     def requires(self):
-        ''' The dependency for this task is the completion of the
-        Demultiplexing task
         '''
-
-        return self.clone(DeMultiplexer)
+        '''
+        return self.clone(LoadGenomeIndex)
 
     def run(self):
         ''' The commands to run
         '''
-
         if os.path.getsize(self.cell_fastq) > 0: ## Make sure the file is not empty
             ## Do the alignment
             star_alignment(config().star,config().genome_dir,
@@ -211,8 +254,6 @@ class Alignment(luigi.Task):
             ## Check if the bam file has any records ?
             ## Add bam tags
             annotate_bam_umi(self.multiplex_file,self.bam,self.tagged_bam)
-            #if config().seqtype.upper() == 'WTS':
-                #annotate_bam_genes(self.tagged_bam,self.annotated_bam)
 
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
@@ -229,7 +270,6 @@ class CountMT(luigi.Task):
     Will likely have some wrapper task to enapsulate this to parallelize
     by Cells
     '''
-
     ## Parameters
     R1_fastq = luigi.Parameter()
     R2_fastq = luigi.Parameter()
@@ -296,7 +336,6 @@ class CountMT(luigi.Task):
 class JoinCountFiles(luigi.Task):
     ''' Task for joining MT count files
     '''
-
     # Parameters
     R1_fastq = luigi.Parameter()
     R2_fastq = luigi.Parameter()
@@ -337,7 +376,6 @@ class JoinCountFiles(luigi.Task):
     def run(self):
         '''
         '''
-
         ## Schedule the dependencies first
         dependencies = []
         for i,cell_index in enumerate(self.cell_indices):
@@ -364,11 +402,12 @@ class JoinCountFiles(luigi.Task):
 
         ## Join the files
         if config().seqtype.upper() == 'WTS':
-            merge_count_files_wts(self.sample_dir,self.count_file,self.sample_name,len(self.cell_indices))
-            merge_metric_files_wts(self.sample_dir,self.temp_metric_file,self.metric_file,self.metric_file_cell,self.sample_name,len(self.cell_indices))
+            wts = True
         else:
-            merge_count_files(self.sample_dir,self.count_file,self.sample_name,len(self.cell_indices))
-            merge_metric_files(self.sample_dir,self.metric_file,len(self.cell_indices))
+            wts = False
+
+        merge_count_files(self.sample_dir,self.count_file,self.sample_name,wts,len(self.cell_indices))
+        merge_metric_files(self.sample_dir,self.temp_metric_file,self.metric_file,self.metric_file_cell,self.sample_name,wts,len(self.cell_indices))
 
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
