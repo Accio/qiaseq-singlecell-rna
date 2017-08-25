@@ -401,14 +401,16 @@ def count_umis(primer_bed,tagged_bam,outfile,metricfile):
     p.close()
     p.join()
 
+    primers_found = len(mt_counter)
     ## Write metrics
     metric_dict = OrderedDict([
-        ('num_reads_primer_found',primer_found),
+        ('num_primers_found',primers_found),
         ('num_reads_primer_offtarget',primer_offtarget),
         ('num_reads_primer_mismatch',primer_mismatch,)
         ('num_reads_primer_off_loci',primer_miss,)
         ('num_reads_unmapped',unmapped),
         ('num_reads_endogenous_seq_not_matched',endo_seq_miss),
+        ('num_reads_primer_found',primer_found),
     ])
     write_metrics(metricfile,metric_dict)
 
@@ -417,5 +419,5 @@ def count_umis(primer_bed,tagged_bam,outfile,metricfile):
         for primer in primer_info:
             chrom,start,stop,seq,revcomp,strand,gene = primer_info[primer]
             mt_count = len(mt_counter[primer])
-            print >> OUT,chrom+'\t'+start+'\t'+stop+'\t'+seq+'\t'+strand+'\t'+gene+'\t'+str(mt_count)
+            print >> OUT,chrom+'\t'+start+'\t'+stop+'\t'+strand+'\t'+gene+'\t'+seq+'\t'+str(mt_count)
 
