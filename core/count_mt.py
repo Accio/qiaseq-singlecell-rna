@@ -263,8 +263,7 @@ def count_umis_wts(annotation_gtf,tagged_bam,outfile,metricfile,logfile,cores=3)
     not_annotated = 0
     multimapped = 0
     ercc=0
-    ercc_names = ['ERCC-00043','ERCC-00046','ERCC-00074','ERCC-00112',
-                  'ERCC-00113','ERCC-00130','ERCC-00145']
+    ercc_names = ['ERCC-00002','ERCC-00003','ERCC-00004','ERCC-00009','ERCC-00012','ERCC-00013','ERCC-00014','ERCC-00016','ERCC-00017','ERCC-00019','ERCC-00022','ERCC-00024','ERCC-00025','ERCC-00028','ERCC-00031','ERCC-00033','ERCC-00034','ERCC-00035','ERCC-00039','ERCC-00040','ERCC-00041','ERCC-00042','ERCC-00043','ERCC-00044','ERCC-00046','ERCC-00048','ERCC-00051','ERCC-00053','ERCC-00054','ERCC-00057','ERCC-00058','ERCC-00059','ERCC-00060','ERCC-00061','ERCC-00062','ERCC-00067','ERCC-00069','ERCC-00071','ERCC-00073','ERCC-00074','ERCC-00075','ERCC-00076','ERCC-00077','ERCC-00078','ERCC-00079','ERCC-00081','ERCC-00083','ERCC-00084','ERCC-00085','ERCC-00086','ERCC-00092','ERCC-00095','ERCC-00096','ERCC-00097','ERCC-00098','ERCC-00099','ERCC-00104','ERCC-00108','ERCC-00109','ERCC-00111','ERCC-00112','ERCC-00113','ERCC-00116','ERCC-00117','ERCC-00120','ERCC-00123','ERCC-00126','ERCC-00130','ERCC-00131','ERCC-00134','ERCC-00136','ERCC-00137','ERCC-00138','ERCC-00142','ERCC-00143','ERCC-00144','ERCC-00145','ERCC-00147','ERCC-00148','ERCC-00150','ERCC-00154','ERCC-00156','ERCC-00157','ERCC-00158','ERCC-00160','ERCC-00162','ERCC-00163','ERCC-00164','ERCC-00165','ERCC-00168','ERCC-00170','ERCC-00171']
     ercc_info = {}
     N=10000000
 
@@ -319,16 +318,17 @@ def count_umis_wts(annotation_gtf,tagged_bam,outfile,metricfile,logfile,cores=3)
                 for gene_info in gene_tree[chrom][strand]:
                     start,end,chrom,strand,gene,gene_type = gene_info.data
                     #loci = chrom+':'+start+'-'+end
-                    if gene_info in mt_counter:
-                        mt_count = len(mt_counter[gene_info])
+                    if gene_info.data in mt_counter:
+                        mt_count = len(mt_counter[gene_info.data])
                     else:
                         mt_count = 0
                     print >> OUT,chrom+'\t'+str(start)+'\t'+str(end)+'\t'+strand+'\t'+gene+\
                         '\t'+gene_type+'\t'+str(mt_count)
         ## Write ERCC counts
         for name in ercc_names:
-            if name in ercc_info:
-                start,end,chrom,strand,gene,gene_type = ercc_info[name]
+            if name in ercc_info:                
+                gene_info = ercc_info[name]
+                start,end,chrom,strand,gene,gene_type = gene_info
                 mt_count = len(mt_counter[gene_info])
             else:
                 start=end=chrom=strand=gene_type='N/A'
@@ -338,7 +338,7 @@ def count_umis_wts(annotation_gtf,tagged_bam,outfile,metricfile,logfile,cores=3)
                 '\t'+gene_type+'\t'+str(mt_count)
     logger.info('Finished MT counting and writing to disk')
 
-def count_mts(primer_bed,tagged_bam,outfile,metricfile):
+def count_umis(primer_bed,tagged_bam,outfile,metricfile):
     ''' Search for the design spe primers in the tagged bam
     and count molecular tags for each primer
     To do : Make this function shorter
@@ -402,34 +402,23 @@ def count_mts(primer_bed,tagged_bam,outfile,metricfile):
     p.close()
     p.join()
 
+    primers_found = len(mt_counter)
     ## Write metrics
-    metric_dict = {
-        'num_reads_primer_found':primer_found,
-        'num_reads_primer_offtarget':primer_offtarget,
-        'num_reads_primer_mismatch':primer_mismatch,
-        'num_reads_primer_off_loci':primer_miss,
-        'num_reads_unmapped':unmapped,
-        'num_reads_endogenous_seq_not_matched':endo_seq_miss
-    }
+    metric_dict = OrderedDict([
+        ('num_primers_found',primers_found),
+        ('num_reads_primer_offtarget',primer_offtarget),
+        ('num_reads_primer_mismatch',primer_mismatch,)
+        ('num_reads_primer_off_loci',primer_miss,)
+        ('num_reads_unmapped',unmapped),
+        ('num_reads_endogenous_seq_not_matched',endo_seq_miss),
+        ('num_reads_primer_found',primer_found),
+    ])
     write_metrics(metricfile,metric_dict)
 
-    ## Look for some UMI collisions
-    umi_collision = defaultdict(list)
-    numi=0
-    buk=0
-    for primer in mt_counter:
-        for umi in mt_counter[primer]:
-            umi_collision[umi].append(primer)
-    for umi in umi_collision:
-        if len(umi_collision[umi]) > 1:
-            numi+=1
-        buk+=1
-            #print tagged_bam,umi,len(umi_collision[umi])
-    print "{bam}\t{num_umis}/{tot} umis tagged to more than one primer".format(bam=tagged_bam,num_umis=numi,tot=buk)
     ## Print output results
     with open(outfile,'w') as OUT:
         for primer in primer_info:
             chrom,start,stop,seq,revcomp,strand,gene = primer_info[primer]
             mt_count = len(mt_counter[primer])
-            print >> OUT,chrom+'\t'+start+'\t'+stop+'\t'+seq+'\t'+strand+'\t'+gene+'\t'+str(mt_count)
+            print >> OUT,chrom+'\t'+start+'\t'+stop+'\t'+strand+'\t'+gene+'\t'+seq+'\t'+str(mt_count)
 

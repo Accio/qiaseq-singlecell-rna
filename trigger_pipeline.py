@@ -16,7 +16,7 @@ def main(samples_config):
         R1_fastq = parser.get(section,'R1_fastq')
         R2_fastq = parser.get(section,'R2_fastq')
 
-        cmd = """PYTHONPATH="" LUIGI_CONFIG_PATH='./pipeline_wts.cfg' luigi --module single_cell_rnaseq JoinCountFiles --R1-fastq {R1} --R2-fastq {R2} --sample-name {sample} --workers 14 --worker-wait-interval 20""".format(R1=R1_fastq,R2=R2_fastq,sample=sample_name)
+        cmd = """PYTHONPATH=$PYTHONPATH:"" luigi --module single_cell_rnaseq JoinCountFiles --R1-fastq {R1} --R2-fastq {R2} --sample-name {sample} --workers 14 --worker-wait-interval 20""".format(R1=R1_fastq,R2=R2_fastq,sample=sample_name)
         print "Running command : {cmd}\n".format(cmd=cmd)
         p = subprocess.Popen(cmd,shell=True)
         p.wait()
