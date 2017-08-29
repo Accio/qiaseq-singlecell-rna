@@ -318,16 +318,17 @@ def count_umis_wts(annotation_gtf,tagged_bam,outfile,metricfile,logfile,cores=3)
                 for gene_info in gene_tree[chrom][strand]:
                     start,end,chrom,strand,gene,gene_type = gene_info.data
                     #loci = chrom+':'+start+'-'+end
-                    if gene_info in mt_counter:
-                        mt_count = len(mt_counter[gene_info])
+                    if gene_info.data in mt_counter:
+                        mt_count = len(mt_counter[gene_info.data])
                     else:
                         mt_count = 0
                     print >> OUT,chrom+'\t'+str(start)+'\t'+str(end)+'\t'+strand+'\t'+gene+\
                         '\t'+gene_type+'\t'+str(mt_count)
         ## Write ERCC counts
         for name in ercc_names:
-            if name in ercc_info:
-                start,end,chrom,strand,gene,gene_type = ercc_info[name]
+            if name in ercc_info:                
+                gene_info = ercc_info[name]
+                start,end,chrom,strand,gene,gene_type = gene_info
                 mt_count = len(mt_counter[gene_info])
             else:
                 start=end=chrom=strand=gene_type='N/A'

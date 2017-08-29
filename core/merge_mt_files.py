@@ -11,7 +11,7 @@ def float_to_string(val):
     '''
     return ('%.2f' % val).rstrip('0').rstrip('.')
 
-def merge_count_files(basedir,out_file,sample_name,ncells=384):
+def merge_count_files(basedir,out_file,sample_name,wts,ncells=384):
     ''' Merge count files from different cells
 
     :param str basedir: the basedirectory
@@ -129,25 +129,25 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
             "Mapped_reads\tUniquely_Mapped_reads\tUsed_reads\tUsed_reads_ERCC"
             "\tMapped_ratio\tUsed_ratio\n"
         )
+        header_len = len(header.split('\t'))
     else:            
         header = (
             "Cell\tTotal_reads\tTotal_pass_QC_reads\tDetected_primers\t"
             "Primers_offtarget\tPrimers_Mismatch\tPrimers_offloci\t"
             "Primers_unmapped\tUsed_ratio\n"
         )
+        header_len = len('\t'.join(header)) 
     with open(outfile,'w') as OUT:
         OUT.write(header)
         for cell in cells:
             cell = str(cell)
             key = 'Cell'+cell+'_'+sample_name
-            if cell not in metric_dict_per_cell: ## Cell had no reads in demultiplexing
-                out = key+'\t'+'\t'.join(['0']*(len(header)-1))+'\n'
+            if cell not in cell_metrics: ## Cell had no reads in demultiplexing
+                out = key+'\t'+'\t'.join(['0']*(header_len-1))+'\n'
                 OUT.write(out)
             else:
                 if wts:
-                    out =
-                    [
-                        key , str(cell_metrics[cell]['num_reads']),
+                    out = [key , str(cell_metrics[cell]['num_reads']),
                         str(cell_metrics[cell]['after_qc_reads']),
                         str(cell_metrics[cell]['num_genes_annotated']),
                         str(cell_metrics[cell]['num_reads_mapped']),
@@ -165,9 +165,7 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
                                   cell_metrics[cell]['after_qc_reads'],2))
                     ]
                 else:
-                    out =
-                    [
-                        key, str(cell_metrics[cell]['num_reads']),
+                    out = [ key, str(cell_metrics[cell]['num_reads']),
                         str(cell_metrics[cell]['after_qc_reads']),
                         str(cell_metrics['num_primers_found']),
                         str(cell_metrics['num_reads_primer_offtarget']),
@@ -175,16 +173,17 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
                         str(cell_metrics['num_reads_primer_off_loci']),
                         str(cell_metrics['num_reads_unmapped']),
                         str(cell_metrics['num_reads_endogenous_seq_not_matched']),
-                        str(cell_metrics['num_reads_primer_found'])
+                        str(cell_metrics['num_reads_primer_found']),
                         float_to_string(
                             round(float(
                                 cell_metrics[cell]['num_reads_primer_found']) / \
-                                  cell_metrics[cell]['after_qc_reads'],2))                    ]
-
+                                  cell_metrics[cell]['after_qc_reads'],2))
                     ]
+
+                    
                 OUT.write('\t'.join(out))
                 OUT.write('\n')
-                assert len(headers) == len(out), "Error in Column Lengths!!"
+                assert header_len == len(out), "Error in Column Lengths!!"
                 
 if __name__ == '__main__':
     merge_count_files(sys.argv[1],sys.argv[2])

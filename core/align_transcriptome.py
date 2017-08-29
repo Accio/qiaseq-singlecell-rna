@@ -9,7 +9,7 @@ def run_cmd(cmd):
     p = subprocess.Popen(cmd,shell=True)
     p.wait()
     if p.returncode:
-        raise subprocess.CalledProcessError(p.returncode)
+        raise subprocess.CalledProcessError(p.returncode,cmd)
     
 def star_load_index(star,genome_dir,program_options):
     ''' Load star index

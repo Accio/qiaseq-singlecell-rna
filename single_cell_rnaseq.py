@@ -1,21 +1,23 @@
 import os
 import sys
 import luigi
-
+import ConfigParser
 ## Modules from this project
 sys.path.append(os.path.join(os.path.dirname(
     os.path.realpath(__file__)),'core'))
 from extract_multiplex_region import extract_region
 from demultiplex_cells import create_cell_fastqs
 from align_transcriptome import star_alignment,star_load_index,star_remove_index,annotate_bam_umi
-from count_mt import count_mts,count_umis_wts
-from merge_mt_files import merge_count_files,merge_metric_files,merge_count_files_wts,merge_metric_files_wts
+from count_mt import count_umis,count_umis_wts
+from merge_mt_files import merge_count_files,merge_metric_files
+from combine_sample_results import combine_count_files,combine_cell_metrics
 
 class config(luigi.Config):
     ''' Initialize values from configuration file
     '''
     star = luigi.Parameter()
     star_params = luigi.Parameter()
+    star_load_params = luigi.Parameter()  
     genome_dir = luigi.Parameter()
     seqtype = luigi.Parameter()
 
@@ -183,7 +185,7 @@ class LoadGenomeIndex(luigi.Task):
         ''' The dependency for this task is the completion of the
         Demultiplexing task
         '''
-        return self.clone(Demultiplexer)
+        return self.clone(DeMultiplexer)
 
     def run(self):
         '''
@@ -345,7 +347,6 @@ class JoinCountFiles(luigi.Task):
     primer_file = luigi.Parameter()
     vector_sequence = luigi.Parameter()
     isolator = luigi.Parameter()
-    cell_index_len = luigi.IntParameter()
     mt_len = luigi.IntParameter()
     num_cores = luigi.IntParameter()
     num_errors = luigi.IntParameter()
@@ -369,11 +370,16 @@ class JoinCountFiles(luigi.Task):
                                               self.__class__.__name__+
                                               '.verification.txt')
         self.cell_indices = []
+        i=0
         with open(self.cell_index_file,'r') as IN:
             for cell_index in IN:
+                if i==0:
+                    self.cell_index_len = len(cell_index.strip('\n'))
+                    i+=1                                          
                 self.cell_indices.append(cell_index.strip('\n'))
 
-    def run(self):
+    
+    def requires(self):
         '''
         '''
         ## Schedule the dependencies first
@@ -399,7 +405,11 @@ class JoinCountFiles(luigi.Task):
                                         cell_num=cell_num,
                                         cell_index=cell_index))
         yield dependencies
+        
 
+    def run(self):
+        '''
+        '''
         ## Join the files
         if config().seqtype.upper() == 'WTS':
             wts = True
@@ -416,3 +426,69 @@ class JoinCountFiles(luigi.Task):
         ''' The output from this task
         '''
         return luigi.LocalTarget(self.verification_file)
+
+class CombineSamples(luigi.Task):
+    ''' Task for combining results from multiple samples
+    '''
+    # Parameters
+    output_dir = luigi.Parameter()
+    samples_cfg = luigi.Parameter()
+    cell_index_file = luigi.Parameter()
+    primer_file = luigi.Parameter()
+    vector_sequence = luigi.Parameter()
+    isolator = luigi.Parameter()
+    mt_len = luigi.IntParameter()
+    num_cores = luigi.IntParameter()
+    num_errors = luigi.IntParameter()
+
+    def __init__(self,*args,**kwargs):
+        ''' The class constructor
+        '''
+        super(CombineSamples,self).__init__(*args,**kwargs)
+        self.combined_count_file = os.path.join(self.output_dir,'combined.umi.counts.txt')
+        self.combined_cell_metrics_file = os.path.join(self.output_dir,'combined.cell.metrics.txt')
+        ## The verification file for this task
+        self.target_dir = os.path.join(self.output_dir,'targets')
+        if not os.path.join(self.target_dir):
+            os.makedirs(self.target_dir)
+        self.verification_file = os.path.join(self.target_dir,
+                                              self.__class__.__name__+
+                                              '.verification.txt')
+    def requires(self):
+        '''
+        '''
+        dependencies = []
+        parser = ConfigParser.ConfigParser()
+        parser.read(self.samples_cfg)
+        for section in parser.sections():
+            sample_name = section
+            R1_fastq = parser.get(section,'R1_fastq')
+            R2_fastq = parser.get(section,'R2_fastq')
+            dependencies.append(JoinCountFiles(R1_fastq=R1_fastq,
+                                               R2_fastq=R2_fastq,
+                                               output_dir=self.output_dir,
+                                               sample_name=sample_name,
+                                               cell_index_file=self.cell_index_file,
+                                               primer_file=self.primer_file,
+                                               vector_sequence=self.vector_sequence,
+                                               isolator=self.isolator,
+                                               mt_len=self.mt_len,
+                                               num_cores=self.num_cores,
+                                               num_errors=self.num_errors))            
+        yield dependencies
+        
+        
+            
+    def run(self):
+        '''
+        '''
+        combine_count_files(self.output_dir,self.combined_count_file)
+        combine_cell_metrics(self.output_dir,self.combined_cell_metrics_file)
+        
+    def output(self):
+        '''
+        '''
+        return luigi.LocalTarget(self.verification_file)
+       
+        
+        
