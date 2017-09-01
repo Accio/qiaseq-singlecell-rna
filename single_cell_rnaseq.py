@@ -324,7 +324,7 @@ class CountMT(luigi.Task):
                 count_umis_wts(self.primer_file,self.tagged_bam,self.outfile,
                                self.metricsfile,self.logfile)
             else:
-                count_mts(self.primer_file,self.tagged_bam,self.outfile,
+                count_umis(self.primer_file,self.tagged_bam,self.outfile,
                           self.metricsfile)
 
         with open(self.verification_file,'w') as OUT:

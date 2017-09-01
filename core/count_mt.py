@@ -373,7 +373,7 @@ def count_umis(primer_bed,tagged_bam,outfile,metricfile):
                 expression = regex.compile(r'^[ACGTN]*(%s){d<=2,i<=2,s<=2,1d+1i+1s<=3}$'%revcomp_seq)
                 primer_tree[chrom].addi(int(start),int(stop),[expression,seq])
 
-    p = Pool(4)
+    p = Pool(12)
     i = 1
     func = partial(find_primer,primer_tree)
     ## Iterate over the bam in chunks and process the results in parallel
@@ -407,8 +407,8 @@ def count_umis(primer_bed,tagged_bam,outfile,metricfile):
     metric_dict = OrderedDict([
         ('num_primers_found',primers_found),
         ('num_reads_primer_offtarget',primer_offtarget),
-        ('num_reads_primer_mismatch',primer_mismatch,)
-        ('num_reads_primer_off_loci',primer_miss,)
+        ('num_reads_primer_mismatch',primer_mismatch),
+        ('num_reads_primer_off_loci',primer_miss),
         ('num_reads_unmapped',unmapped),
         ('num_reads_endogenous_seq_not_matched',endo_seq_miss),
         ('num_reads_primer_found',primer_found),

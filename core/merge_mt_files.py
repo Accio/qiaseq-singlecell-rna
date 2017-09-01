@@ -133,10 +133,10 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
     else:            
         header = (
             "Cell\tTotal_reads\tTotal_pass_QC_reads\tDetected_primers\t"
-            "Primers_offtarget\tPrimers_Mismatch\tPrimers_offloci\t"
-            "Primers_unmapped\tUsed_ratio\n"
+            "Reads_offtarget\tReads_Mismatch\tReads_offloci\t"
+            "Reads_unmapped\tReads_endogenous_seq_not_matched\tUsed_Reads\tmUsed_ratio\n"
         )
-        header_len = len('\t'.join(header)) 
+        header_len = len(header.split('\t'))
     with open(outfile,'w') as OUT:
         OUT.write(header)
         for cell in cells:
