@@ -51,7 +51,7 @@ def merge_count_files(basedir,out_file,sample_name,wts,ncells=384):
                     out = out + '\t'+MT[key][str(cell)]
             OUT.write(out+'\n')
 
-def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sample_name,wts=True,ncells=384):
+def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sample_name,wts,ncells=384):
     ''' Merge the metrics from primer/gene finding
 
     :param str basedir: the basedirectory
@@ -86,7 +86,7 @@ def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sam
                     if metric not in metric_dict:
                         metric_dict[metric]=int(val)
                     else:
-                        metric_dict[metric]+=int(val)
+                        metric_dict[metric]+=int(val)                
                 metric_dict_per_cell[cell][metric] = int(val)
 
     ## Get Per Cell Demultiplex Stats
@@ -134,7 +134,7 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
         header = (
             "Cell\tTotal_reads\tTotal_pass_QC_reads\tDetected_primers\t"
             "Reads_offtarget\tReads_Mismatch\tReads_offloci\t"
-            "Reads_unmapped\tReads_endogenous_seq_not_matched\tUsed_Reads\tmUsed_ratio\n"
+            "Reads_unmapped\tReads_endogenous_seq_not_matched\tUsed_Reads\tUsed_ratio\n"
         )
         header_len = len(header.split('\t'))
     with open(outfile,'w') as OUT:
@@ -167,20 +167,18 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
                 else:
                     out = [ key, str(cell_metrics[cell]['num_reads']),
                         str(cell_metrics[cell]['after_qc_reads']),
-                        str(cell_metrics['num_primers_found']),
-                        str(cell_metrics['num_reads_primer_offtarget']),
-                        str(cell_metrics['num_reads_primer_mismatch']),
-                        str(cell_metrics['num_reads_primer_off_loci']),
-                        str(cell_metrics['num_reads_unmapped']),
-                        str(cell_metrics['num_reads_endogenous_seq_not_matched']),
-                        str(cell_metrics['num_reads_primer_found']),
+                        str(cell_metrics[cell]['num_primers_found']),
+                        str(cell_metrics[cell]['num_reads_primer_offtarget']),
+                        str(cell_metrics[cell]['num_reads_primer_mismatch']),
+                        str(cell_metrics[cell]['num_reads_primer_off_loci']),
+                        str(cell_metrics[cell]['num_reads_unmapped']),
+                        str(cell_metrics[cell]['num_reads_endogenous_seq_not_matched']),
+                        str(cell_metrics[cell]['num_reads_primer_found']),
                         float_to_string(
                             round(float(
                                 cell_metrics[cell]['num_reads_primer_found']) / \
                                   cell_metrics[cell]['after_qc_reads'],2))
                     ]
-
-                    
                 OUT.write('\t'.join(out))
                 OUT.write('\n')
                 assert header_len == len(out), "Error in Column Lengths!!"

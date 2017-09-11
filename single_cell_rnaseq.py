@@ -449,7 +449,7 @@ class CombineSamples(luigi.Task):
         self.combined_cell_metrics_file = os.path.join(self.output_dir,'combined.cell.metrics.txt')
         ## The verification file for this task
         self.target_dir = os.path.join(self.output_dir,'targets')
-        if not os.path.join(self.target_dir):
+        if not os.path.exists(self.target_dir):
             os.makedirs(self.target_dir)
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
@@ -484,6 +484,8 @@ class CombineSamples(luigi.Task):
         '''
         combine_count_files(self.output_dir,self.combined_count_file)
         combine_cell_metrics(self.output_dir,self.combined_cell_metrics_file)
+        with open(self.verification_file,'w') as IN:
+            IN.write('done\n')
         
     def output(self):
         '''

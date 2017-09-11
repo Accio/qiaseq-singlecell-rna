@@ -373,13 +373,13 @@ def count_umis(primer_bed,tagged_bam,outfile,metricfile):
                 expression = regex.compile(r'^[ACGTN]*(%s){d<=2,i<=2,s<=2,1d+1i+1s<=3}$'%revcomp_seq)
                 primer_tree[chrom].addi(int(start),int(stop),[expression,seq])
 
-    p = Pool(12)
+    p = Pool(8)
     i = 1
     func = partial(find_primer,primer_tree)
     ## Iterate over the bam in chunks and process the results in parallel
     ## The chunking here is mainly to stay within memory bound for very large bam files
     ## The default chunk size is : 750,000 reads
-    for chunks in iterate_bam_chunks(tagged_bam,chunks=1000000):
+    for chunks in iterate_bam_chunks(tagged_bam,chunks=10000000):
         #print "Processing chunk : %i"%i
         find_primer_results = p.map(func,chunks)
         for info in find_primer_results:

@@ -78,6 +78,7 @@ def find_motif(motif,read_tup):
     if match:
         return (read_id,match.group(3))
     else:
+        print read_tup,motif
         return (read_id,None)
 
 def print_result(regions,outfile,cell_index_len):
@@ -99,7 +100,7 @@ def print_result(regions,outfile,cell_index_len):
                 cell_index = multiplex_region[0:cell_index_len]
                 mt = multiplex_region[cell_index_len:]
                 OUT.write("%s\t%s\t%s\n"%(read_id,cell_index,mt))
-            else:
+            else:         
                 j+=1
 
 def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfile,cores):
@@ -120,6 +121,8 @@ def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfi
     p = multiprocessing.Pool(cores)
     multiplex_len = cell_index_len + mt_len
     motif = r'((%s){e<=%i}([ACGT]{%i,%i})(ACG){s<=1}[ACGT]*)'%(vector,error,multiplex_len-1,multiplex_len+1)
+    #vector_len = len(vector)
+    #motif = r'(([ACGT]){%i}([ACGT]{%i,%i})(ACG){s<=1}[ACGT]*)'%(vector_len,multiplex_len-1,multiplex_len+1)
     func = partial(find_motif,motif)
     print "\nLooking for the motif : %s in the sequencing reads.\n"%motif
     ## Print out results , takes in input a list of tuples which are processed in parallel by func()

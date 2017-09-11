@@ -38,7 +38,6 @@ def read_cell_file(cfile,metric_dict):
                 metrics = contents
                 i+=1
                 continue
-
             if contents[1:] == ['0']*len(contents[1:]):
                 continue
 
@@ -66,11 +65,10 @@ def combine_cell_metrics(output_folder,outfile):
         i=0
         for metric in cell_metrics:
             print metric
-            if i == 0:
+            if i == 0: ## Write Header
                 header = 'Metrics/Cells\t'+'\t'.join(cell_metrics[metric].keys())
                 OUT.write(header+'\n')
                 i+=1
-                continue
             out = metric
             for cell in cell_metrics[metric]:
                 out = out+'\t'+cell_metrics[metric][cell]
