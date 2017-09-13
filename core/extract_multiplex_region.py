@@ -77,8 +77,7 @@ def find_motif(motif,read_tup):
     match = regex.match(motif,read_seq)
     if match:
         return (read_id,match.group(3))
-    else:
-        print read_tup,motif
+    else:        
         return (read_id,None)
 
 def print_result(regions,outfile,cell_index_len):

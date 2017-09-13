@@ -1,6 +1,8 @@
 import os
+import glob
 import sys
 import luigi
+import sqlite3
 import ConfigParser
 ## Modules from this project
 sys.path.append(os.path.join(os.path.dirname(
@@ -11,20 +13,23 @@ from align_transcriptome import star_alignment,star_load_index,star_remove_index
 from count_mt import count_umis,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files
 from combine_sample_results import combine_count_files,combine_cell_metrics
+from create_annotation_tables import create_gene_tree
 
+GENE_TREE = None 
 class config(luigi.Config):
     ''' Initialize values from configuration file
     '''
-    star = luigi.Parameter()
-    star_params = luigi.Parameter()
-    star_load_params = luigi.Parameter()  
-    genome_dir = luigi.Parameter()
-    seqtype = luigi.Parameter()
+    star = luigi.Parameter(description="Path to the STAR executable")
+    star_params = luigi.Parameter(description="Params for STAR")
+    star_load_params = luigi.Parameter(description="Params for STAR to load a genome file")
+    genome_dir = luigi.Parameter(description="The path to the star index dir")
+    seqtype = luigi.Parameter(description="Whether this is a targetted or wts experiment")
+    primer_file = luigi.Parameter(description="The primer file,if wts this is not applicable")
+    annotation_gtf = luigi.Parameter(description="Gencode annotation file")
 
 class MyExtTask(luigi.ExternalTask):
     ''' Checks whether the file specified exists on disk
     '''
-
     file_loc = luigi.Parameter()
     def output(self):
         return luigi.LocalTarget(self.file_loc)
@@ -40,7 +45,6 @@ class ExtractMultiplexRegion(luigi.Task):
     output_dir = luigi.Parameter()
     sample_name = luigi.Parameter()
     cell_index_file = luigi.Parameter()
-    primer_file = luigi.Parameter()
     vector_sequence = luigi.Parameter()
     isolator = luigi.Parameter()
     cell_index_len = luigi.IntParameter()
@@ -104,7 +108,6 @@ class DeMultiplexer(luigi.Task):
     output_dir = luigi.Parameter()
     sample_name = luigi.Parameter()
     cell_index_file = luigi.Parameter()
-    primer_file = luigi.Parameter()
     vector_sequence = luigi.Parameter()
     isolator = luigi.Parameter()
     cell_index_len = luigi.IntParameter()
@@ -161,7 +164,6 @@ class LoadGenomeIndex(luigi.Task):
     output_dir = luigi.Parameter()
     sample_name = luigi.Parameter()
     cell_index_file = luigi.Parameter()
-    primer_file = luigi.Parameter()
     vector_sequence = luigi.Parameter()
     isolator = luigi.Parameter()
     cell_index_len = luigi.IntParameter()
@@ -209,7 +211,6 @@ class Alignment(luigi.Task):
     output_dir = luigi.Parameter()
     sample_name = luigi.Parameter()
     cell_index_file = luigi.Parameter()
-    primer_file = luigi.Parameter()
     vector_sequence = luigi.Parameter()
     isolator = luigi.Parameter()
     cell_index_len = luigi.IntParameter()
@@ -278,7 +279,6 @@ class CountMT(luigi.Task):
     output_dir = luigi.Parameter()
     sample_name = luigi.Parameter()
     cell_index_file = luigi.Parameter()
-    primer_file = luigi.Parameter()
     vector_sequence = luigi.Parameter()
     isolator = luigi.Parameter()
     cell_index_len = luigi.IntParameter()
@@ -299,6 +299,7 @@ class CountMT(luigi.Task):
         self.bam = os.path.join(self.cell_dir,'Aligned.sortedByCoord.out.bam')
         self.tagged_bam = os.path.join(self.cell_dir,'Aligned.sortedByCoord.out.tagged.bam')
         self.outfile = os.path.join(self.cell_dir,'mt_count.txt')
+        self.outfile_primer = os.path.join(self.cell_dir,'mt_count.primers.txt')
         self.metricsfile = os.path.join(self.cell_dir,'read_stats.txt')
         self.target_dir = os.path.join(self.sample_dir,'targets')
         self.logdir = os.path.join(self.sample_dir,'logs')
@@ -321,11 +322,11 @@ class CountMT(luigi.Task):
         '''
         if os.path.getsize(self.cell_fastq) > 0:
             if config().seqtype.upper() == 'WTS':
-                count_umis_wts(self.primer_file,self.tagged_bam,self.outfile,
+                count_umis_wts(GENE_TREE,self.tagged_bam,self.outfile,
                                self.metricsfile,self.logfile)
             else:
-                count_umis(self.primer_file,self.tagged_bam,self.outfile,
-                          self.metricsfile)
+                count_umis(config().primer_file,self.tagged_bam,self.outfile_primer,
+                           self.outfile,self.metricsfile,self.num_cores)
 
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
@@ -344,7 +345,6 @@ class JoinCountFiles(luigi.Task):
     output_dir = luigi.Parameter()
     sample_name = luigi.Parameter()
     cell_index_file = luigi.Parameter()
-    primer_file = luigi.Parameter()
     vector_sequence = luigi.Parameter()
     isolator = luigi.Parameter()
     mt_len = luigi.IntParameter()
@@ -404,20 +404,25 @@ class JoinCountFiles(luigi.Task):
                                         cell_fastq=cell_fastq,
                                         cell_num=cell_num,
                                         cell_index=cell_index))
-        yield dependencies
-        
+        yield dependencies        
 
     def run(self):
         '''
         '''
+        ## Merge gene level count files first
+        files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/mt_count.txt"))
+        merge_count_files(self.sample_dir,self.count_file,self.sample_name,True,len(self.cell_indices),files_to_merge)
         ## Join the files
         if config().seqtype.upper() == 'WTS':
             wts = True
         else:
+            ## Merge primer level count files
             wts = False
-
-        merge_count_files(self.sample_dir,self.count_file,self.sample_name,wts,len(self.cell_indices))
-        merge_metric_files(self.sample_dir,self.temp_metric_file,self.metric_file,self.metric_file_cell,self.sample_name,wts,len(self.cell_indices))
+            files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/mt_count.primers.txt"))
+            merge_count_files(self.sample_dir,self.count_file,self.sample_name,wts,len(self.cell_indices),files_to_merge)            
+        ## Merge metric files
+        files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/read_stats.txt"))
+        merge_metric_files(self.sample_dir,self.temp_metric_file,self.metric_file,self.metric_file_cell,self.sample_name,wts,len(self.cell_indices),files_to_merge)
 
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
@@ -434,7 +439,6 @@ class CombineSamples(luigi.Task):
     output_dir = luigi.Parameter()
     samples_cfg = luigi.Parameter()
     cell_index_file = luigi.Parameter()
-    primer_file = luigi.Parameter()
     vector_sequence = luigi.Parameter()
     isolator = luigi.Parameter()
     mt_len = luigi.IntParameter()
@@ -454,29 +458,24 @@ class CombineSamples(luigi.Task):
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
                                               '.verification.txt')
+        ## Annotation information from gencode        
+        global GENE_TREE
+        GENE_TREE = create_gene_tree(config().annotation_gtf)
+        
     def requires(self):
         '''
         '''
         dependencies = []
         parser = ConfigParser.ConfigParser()
-        parser.read(self.samples_cfg)
-        for section in parser.sections():
+        parser.read(self.samples_cfg)        
+        for section in parser.sections():            
             sample_name = section
             R1_fastq = parser.get(section,'R1_fastq')
-            R2_fastq = parser.get(section,'R2_fastq')
-            dependencies.append(JoinCountFiles(R1_fastq=R1_fastq,
-                                               R2_fastq=R2_fastq,
-                                               output_dir=self.output_dir,
-                                               sample_name=sample_name,
-                                               cell_index_file=self.cell_index_file,
-                                               primer_file=self.primer_file,
-                                               vector_sequence=self.vector_sequence,
-                                               isolator=self.isolator,
-                                               mt_len=self.mt_len,
-                                               num_cores=self.num_cores,
-                                               num_errors=self.num_errors))            
-        yield dependencies
+            R2_fastq = parser.get(section,'R2_fastq')            
+            dependencies.append(JoinCountFiles(R1_fastq=R1_fastq,R2_fastq=R2_fastq,output_dir=self.output_dir,sample_name=sample_name,cell_index_file=self.cell_index_file,vector_sequence=self.vector_sequence,isolator=self.isolator,mt_len=self.mt_len,num_cores=self.num_cores,num_errors=self.num_errors))
+            
         
+        yield dependencies        
         
             
     def run(self):

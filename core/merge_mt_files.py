@@ -11,7 +11,7 @@ def float_to_string(val):
     '''
     return ('%.2f' % val).rstrip('0').rstrip('.')
 
-def merge_count_files(basedir,out_file,sample_name,wts,ncells=384):
+def merge_count_files(basedir,out_file,sample_name,wts,ncells,files_to_merge):
     ''' Merge count files from different cells
 
     :param str basedir: the basedirectory
@@ -19,15 +19,13 @@ def merge_count_files(basedir,out_file,sample_name,wts,ncells=384):
     :param str sample_name: the name of the sample
     :param bool wts: Whether it is whole transcriptome or not
     :param int ncells: the number of cell indices
+    :param list files_to_merge: which files to merge
     '''
     i = 0
     MT = defaultdict(lambda:defaultdict(int))
     cells = range(1,ncells+1)
     cell_header = '\t'.join(sample_name+'_Cell'+str(cell) for cell in cells)
-    files = glob.glob(os.path.join(basedir,"*/mt_count.txt"))
-
-
-    for f in files:
+    for f in files_to_merge:
         cell = os.path.dirname(f).split('/')[-1].split('_')[0].strip('Cell')
         with open(f,'r') as IN:
             for line in IN:
@@ -51,7 +49,7 @@ def merge_count_files(basedir,out_file,sample_name,wts,ncells=384):
                     out = out + '\t'+MT[key][str(cell)]
             OUT.write(out+'\n')
 
-def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sample_name,wts,ncells=384):
+def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sample_name,wts,ncells,files_to_merge):
     ''' Merge the metrics from primer/gene finding
 
     :param str basedir: the basedirectory
@@ -61,6 +59,7 @@ def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sam
     :param str sample_name: the sample name
     :param bool: wts: Whether whole transcriptome or not
     :param int ncells: the number of cell indices
+    :param list files_to_merge: which files to merge
     '''
     i = 0
     cells = range(1,ncells+1)
@@ -76,8 +75,7 @@ def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sam
     choice = 'num_genes_annotated' if wts else 'num_primers_found'
     
     ## Get Alignment Stats
-    files = glob.glob(os.path.join(basedir,"*/read_stats.txt"))
-    for f in files:
+    for f in files_to_merge:
         cell = os.path.dirname(f).split('/')[-1].split('_')[0].strip('Cell')
         with open(f,'r') as IN:
             for line in IN:
