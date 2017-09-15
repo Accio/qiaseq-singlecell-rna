@@ -177,7 +177,7 @@ class LoadGenomeIndex(luigi.Task):
     def requires(self):
         ''' The dependency for this task is the existence of the genome dir
         '''
-        return luigi.LocalTarget(config().genome_dir)
+        return MyExtTask(config().genome_dir)
 
     def run(self):
         '''
