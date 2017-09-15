@@ -159,35 +159,22 @@ class LoadGenomeIndex(luigi.Task):
     ''' Task for loading genome index for STAR
     '''
     ## Define some parameters
-    R1_fastq = luigi.Parameter()
-    R2_fastq = luigi.Parameter()
-    output_dir = luigi.Parameter()
-    sample_name = luigi.Parameter()
-    cell_index_file = luigi.Parameter()
-    vector_sequence = luigi.Parameter()
-    isolator = luigi.Parameter()
-    cell_index_len = luigi.IntParameter()
-    mt_len = luigi.IntParameter()
-    num_cores = luigi.IntParameter()
-    num_errors = luigi.IntParameter()
-
+    output_dir = luigi.Parameter(significant=False)
 
     def __init__(self,*args,**kwargs):
         ''' Class constructor
         '''
-        super(LoadGenomeIndex,self).__init__(*args,**kwargs)
-        self.sample_dir = os.path.join(self.output_dir,self.sample_name)
-        self.target_dir = os.path.join(self.sample_dir,'targets')
+        super(LoadGenomeIndex,self).__init__(*args,**kwargs) 
+        self.target_dir = os.path.join(self.output_dir,'targets')
         ## The verification file for this task
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
                                               '.verification.txt')
 
     def requires(self):
-        ''' The dependency for this task is the completion of the
-        Demultiplexing task
+        ''' The dependency for this task is the existence of the genome dir
         '''
-        return self.clone(DeMultiplexer)
+        return luigi.LocalTarget(config().genome_dir)
 
     def run(self):
         '''
@@ -244,7 +231,8 @@ class Alignment(luigi.Task):
     def requires(self):
         '''
         '''
-        return self.clone(LoadGenomeIndex)
+        yield self.clone(DeMultiplexer)
+        yiled LoadGenomeIndex(output_dir=self.output_dir)
 
     def run(self):
         ''' The commands to run
@@ -298,8 +286,8 @@ class CountMT(luigi.Task):
         self.cell_dir = os.path.join(self.sample_dir,'Cell%i_%s'%(self.cell_num,self.cell_index))
         self.bam = os.path.join(self.cell_dir,'Aligned.sortedByCoord.out.bam')
         self.tagged_bam = os.path.join(self.cell_dir,'Aligned.sortedByCoord.out.tagged.bam')
-        self.outfile = os.path.join(self.cell_dir,'mt_count.txt')
-        self.outfile_primer = os.path.join(self.cell_dir,'mt_count.primers.txt')
+        self.outfile = os.path.join(self.cell_dir,'umi_count.txt')
+        self.outfile_primer = os.path.join(self.cell_dir,'umi_count.primers.txt')
         self.metricsfile = os.path.join(self.cell_dir,'read_stats.txt')
         self.target_dir = os.path.join(self.sample_dir,'targets')
         self.logdir = os.path.join(self.sample_dir,'logs')
@@ -309,7 +297,8 @@ class CountMT(luigi.Task):
                                               '.'+str(self.cell_num)+
                                               '.verification.txt')
         self.logfile = os.path.join(self.logdir,
-                                    self.__class__.__name__+
+                                    self.__class__.__name__ +
+                                    self.sample_name +
                                     '.'+str(self.cell_num)+'.log.txt')
 
     def requires(self):
@@ -357,7 +346,7 @@ class JoinCountFiles(luigi.Task):
         super(JoinCountFiles,self).__init__(*args,**kwargs)
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
         self.count_file = os.path.join(self.sample_dir,
-                                       self.sample_name+'.mt.counts.txt')
+                                       self.sample_name+'.umi.counts.txt')
         self.temp_metric_file = os.path.join(self.sample_dir,
                                        '%s_read_stats.temp.txt'%self.sample_name)
         self.metric_file = os.path.join(self.sample_dir,
@@ -410,7 +399,7 @@ class JoinCountFiles(luigi.Task):
         '''
         '''
         ## Merge gene level count files first
-        files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/mt_count.txt"))
+        files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/umi_count.txt"))
         merge_count_files(self.sample_dir,self.count_file,self.sample_name,True,len(self.cell_indices),files_to_merge)
         ## Join the files
         if config().seqtype.upper() == 'WTS':
@@ -418,7 +407,7 @@ class JoinCountFiles(luigi.Task):
         else:
             ## Merge primer level count files
             wts = False
-            files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/mt_count.primers.txt"))
+            files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/umi_count.primers.txt"))
             merge_count_files(self.sample_dir,self.count_file,self.sample_name,wts,len(self.cell_indices),files_to_merge)            
         ## Merge metric files
         files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/read_stats.txt"))
