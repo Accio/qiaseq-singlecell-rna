@@ -469,7 +469,15 @@ class CombineSamples(luigi.Task):
             R1_fastq = parser.get(section,'R1_fastq')
             R2_fastq = parser.get(section,'R2_fastq')
             instrument = parser.get(section,'Instrument')
-            dependencies.append(JoinCountFiles(R1_fastq=R1_fastq,R2_fastq=R2_fastq,output_dir=self.output_dir,sample_name=sample_name,cell_index_file=self.cell_index_file,vector_sequence=self.vector_sequence,isolator=self.isolator,mt_len=self.mt_len,num_cores=self.num_cores,num_errors=self.num_errors,instrument=self.instrument))
+            dependencies.append(
+                JoinCountFiles(
+                    R1_fastq=R1_fastq,R2_fastq=R2_fastq,
+                    output_dir=self.output_dir,sample_name=sample_name,
+                    cell_index_file=self.cell_index_file,vector_sequence=self.vector_sequence,
+                    isolator=self.isolator,mt_len=self.mt_len,num_cores=self.num_cores,
+                    num_errors=self.num_errors,instrument=instrument
+                )
+            )
             
         
         yield dependencies        
