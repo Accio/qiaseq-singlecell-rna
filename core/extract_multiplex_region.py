@@ -120,7 +120,7 @@ def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfi
 
     p = multiprocessing.Pool(cores)
     multiplex_len = cell_index_len + mt_len
-    if instrument.upper != 'NEXTSEQ':
+    if instrument.upper() != 'NEXTSEQ':
         motif = r'((%s){e<=%i}([ACGT]{%i,%i})(ACG){s<=1}[ACGT]*)'%(vector,error,multiplex_len-1,multiplex_len+1)
     else: ## For reads from a NextSeq instrument ignore the vector region
         vector_len = len(vector)
