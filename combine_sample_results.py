@@ -80,7 +80,7 @@ def combine_count_files(output_folder,outfile):
 
     prev_info = None
     prev_header = None
-    samples = glob.glob('{out}/*/*.mt.counts.txt'.format(out=output_folder))
+    samples = glob.glob('{out}/*/*.umi.counts.txt'.format(out=output_folder))
     nsamples = len(samples)
     prev_column = 0
     headers = []
