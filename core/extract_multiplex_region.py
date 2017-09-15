@@ -102,7 +102,7 @@ def print_result(regions,outfile,cell_index_len):
             else:         
                 j+=1
 
-def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfile,cores):
+def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfile,cores,instrument):
     '''
     A wrapper function to parallelize motif finding in the sequencing reads
 
@@ -112,16 +112,19 @@ def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfi
     :param int mt_len: length of the molecular tag region
     :param str read2_fastq: 2nd mate pair fastq location(can be .gz or not)
     :param str outfile: path to the output file
-    :param int cores: number of CPUs to use
+    :param int cores: number of processes to use
+    :param str instrument: the type of instrument used for sequencing
     :return: nothing
     :rtype:
     '''
 
     p = multiprocessing.Pool(cores)
     multiplex_len = cell_index_len + mt_len
-    motif = r'((%s){e<=%i}([ACGT]{%i,%i})(ACG){s<=1}[ACGT]*)'%(vector,error,multiplex_len-1,multiplex_len+1)
-    #vector_len = len(vector)
-    #motif = r'(([ACGT]){%i}([ACGT]{%i,%i})(ACG){s<=1}[ACGT]*)'%(vector_len,multiplex_len-1,multiplex_len+1)
+    if instrument.upper != 'NEXTSEQ':
+        motif = r'((%s){e<=%i}([ACGT]{%i,%i})(ACG){s<=1}[ACGT]*)'%(vector,error,multiplex_len-1,multiplex_len+1)
+    else: ## For reads from a NextSeq instrument ignore the vector region
+        vector_len = len(vector)
+        motif = r'(([ACGT]){%i}([ACGT]{%i,%i})(ACG){s<=1}[ACGT]*)'%(vector_len,multiplex_len-1,multiplex_len+1)
     func = partial(find_motif,motif)
     print "\nLooking for the motif : %s in the sequencing reads.\n"%motif
     ## Print out results , takes in input a list of tuples which are processed in parallel by func()
@@ -153,6 +156,8 @@ if __name__ == "__main__":
     parser.add_argument('-n','--parallel',
                          help="The number of cores to use",
                          default=1,type=int,required=False)
+    parser.add_argument('-ins','--instrument',
+                        help="The sequencing instrument which was used")
     args = parser.parse_args()
     print "\nRunning program with arguments : {0}\n".format(args)
     extract_region(args.vector,args.error,args.cell_index_len,args.mt_len,args.isolator,

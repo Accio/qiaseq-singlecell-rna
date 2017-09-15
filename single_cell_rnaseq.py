@@ -51,6 +51,7 @@ class ExtractMultiplexRegion(luigi.Task):
     mt_len = luigi.IntParameter()
     num_cores = luigi.IntParameter()
     num_errors = luigi.IntParameter()
+    instrument = luigi.Parameter()
 
     def __init__(self,*args,**kwargs):
         ''' The constructor
@@ -88,7 +89,8 @@ class ExtractMultiplexRegion(luigi.Task):
         extract_region(self.vector_sequence,
                        self.num_errors,self.cell_index_len,
                        self.mt_len,self.isolator,self.R2_fastq,
-                       self.multiplex_file,self.num_cores)
+                       self.multiplex_file,self.num_cores,
+                       self.instrument)
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
@@ -114,6 +116,7 @@ class DeMultiplexer(luigi.Task):
     mt_len = luigi.IntParameter()
     num_cores = luigi.IntParameter()
     num_errors = luigi.IntParameter()
+    instrument = luigi.Parameter()
 
     def __init__(self,*args,**kwargs):
         ''' The constructor
@@ -204,6 +207,7 @@ class Alignment(luigi.Task):
     mt_len = luigi.IntParameter()
     num_cores = luigi.IntParameter()
     num_errors = luigi.IntParameter()
+    instrument = luigi.Parameter()
 
     cell_fastq = luigi.Parameter()
     cell_num = luigi.IntParameter()
@@ -273,6 +277,7 @@ class CountMT(luigi.Task):
     mt_len = luigi.IntParameter()
     num_cores = luigi.IntParameter()
     num_errors = luigi.IntParameter()
+    instrument = luigi.Parameter()
 
     cell_fastq = luigi.Parameter()
     cell_num = luigi.IntParameter()
@@ -339,6 +344,7 @@ class JoinCountFiles(luigi.Task):
     mt_len = luigi.IntParameter()
     num_cores = luigi.IntParameter()
     num_errors = luigi.IntParameter()
+    instrument = luigi.Parameter()
 
     def __init__(self,*args,**kwargs):
         ''' The class constructor
@@ -390,6 +396,7 @@ class JoinCountFiles(luigi.Task):
                                         mt_len=self.mt_len,
                                         num_cores=self.num_cores,
                                         num_errors=self.num_errors,
+                                        instrument=self.instrument,
                                         cell_fastq=cell_fastq,
                                         cell_num=cell_num,
                                         cell_index=cell_index))
@@ -460,8 +467,9 @@ class CombineSamples(luigi.Task):
         for section in parser.sections():            
             sample_name = section
             R1_fastq = parser.get(section,'R1_fastq')
-            R2_fastq = parser.get(section,'R2_fastq')            
-            dependencies.append(JoinCountFiles(R1_fastq=R1_fastq,R2_fastq=R2_fastq,output_dir=self.output_dir,sample_name=sample_name,cell_index_file=self.cell_index_file,vector_sequence=self.vector_sequence,isolator=self.isolator,mt_len=self.mt_len,num_cores=self.num_cores,num_errors=self.num_errors))
+            R2_fastq = parser.get(section,'R2_fastq')
+            instrument = parser.get(section,'Instrument')
+            dependencies.append(JoinCountFiles(R1_fastq=R1_fastq,R2_fastq=R2_fastq,output_dir=self.output_dir,sample_name=sample_name,cell_index_file=self.cell_index_file,vector_sequence=self.vector_sequence,isolator=self.isolator,mt_len=self.mt_len,num_cores=self.num_cores,num_errors=self.num_errors,instrument=self.instrument))
             
         
         yield dependencies        
