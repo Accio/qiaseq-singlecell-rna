@@ -236,7 +236,7 @@ class Alignment(luigi.Task):
         '''
         '''
         yield self.clone(DeMultiplexer)
-        yiled LoadGenomeIndex(output_dir=self.output_dir)
+        yield LoadGenomeIndex(output_dir=self.output_dir)
 
     def run(self):
         ''' The commands to run
