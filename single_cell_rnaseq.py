@@ -103,20 +103,19 @@ class ExtractMultiplexRegion(luigi.Task):
 class DeMultiplexer(luigi.Task):
     ''' Task for demultiplexing a fastq into individual cells
     '''
-
     ## The parameters for this task
-    R1_fastq = luigi.Parameter(significant=True)
-    R2_fastq = luigi.Parameter(significant=True)
-    output_dir = luigi.Parameter(significant=True)
-    sample_name = luigi.Parameter(significant=True)
-    cell_index_file = luigi.Parameter(significant=True)
-    vector_sequence = luigi.Parameter(significant=True)
-    isolator = luigi.Parameter(significant=True)
-    cell_index_len = luigi.IntParameter(significant=True)
-    mt_len = luigi.IntParameter(significant=True)
-    num_cores = luigi.IntParameter(significant=True)
-    num_errors = luigi.IntParameter(significant=True)
-    instrument = luigi.Parameter(significant=True)
+    R1_fastq = luigi.Parameter()
+    R2_fastq = luigi.Parameter()
+    output_dir = luigi.Parameter()
+    sample_name = luigi.Parameter()
+    cell_index_file = luigi.Parameter()
+    vector_sequence = luigi.Parameter()
+    isolator = luigi.Parameter()
+    cell_index_len = luigi.IntParameter()
+    mt_len = luigi.IntParameter()
+    num_cores = luigi.IntParameter()
+    num_errors = luigi.IntParameter()
+    instrument = luigi.Parameter()
 
     def __init__(self,*args,**kwargs):
         ''' The constructor
@@ -162,18 +161,7 @@ class LoadGenomeIndex(luigi.Task):
     ''' Task for loading genome index for STAR
     '''
     ## Define some parameters
-    R1_fastq = luigi.Parameter(significant=False)
-    R2_fastq = luigi.Parameter(significant=False)
     output_dir = luigi.Parameter(significant=False)
-    sample_name = luigi.Parameter(significant=False)
-    cell_index_file = luigi.Parameter(significant=False)
-    vector_sequence = luigi.Parameter(significant=False)
-    isolator = luigi.Parameter(significant=False)
-    cell_index_len = luigi.IntParameter(significant=False)
-    mt_len = luigi.IntParameter(significant=False)
-    num_cores = luigi.IntParameter(significant=False)
-    num_errors = luigi.IntParameter(significant=False)
-    instrument = luigi.Parameter(significant=False)
 
     def __init__(self,*args,**kwargs):
         ''' Class constructor
@@ -188,13 +176,7 @@ class LoadGenomeIndex(luigi.Task):
     def requires(self):
         ''' The dependency for this task is the existence of the genome dir
         '''
-        return DeMultiplexer(
-            R1_fastq=self.R1_fastq,R2_fastq=self.R2_fastq,
-            output_dir=self.output_dir,sample_name=self.sample_name,
-            cell_index_file=self.cell_index_file,vector_sequence=self.vector_sequence,
-            isolator=self.isolator,cell_index_len=self.cell_index_len,mt_len=self.mt_len,
-            num_cores=self.num_cores,num_errors=self.num_errors,instrument=self.instrument
-        )
+        return MyExtTask(config().genome_dir)
 
     def run(self):
         '''
@@ -252,7 +234,8 @@ class Alignment(luigi.Task):
     def requires(self):
         '''
         '''
-        yield self.clone(LoadGenomeIndex)
+        yield LoadGenomeIndex(output_dir=self.output_dir)
+        yield self.clone(DeMultiplexer)
 
     def run(self):
         ''' The commands to run
