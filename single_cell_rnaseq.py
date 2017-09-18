@@ -188,8 +188,13 @@ class LoadGenomeIndex(luigi.Task):
     def requires(self):
         ''' The dependency for this task is the existence of the genome dir
         '''
-        #return luigi.LocalTarget(config().genome_dir)
-        return self.clone(DeMultiplexer)
+        return self.clone(DeMultiplexer(
+            R1_fastq=self.R1_fastq,R2_fastq=self.R2_fastq,
+            output_dir=self.output_dir,sample_name=self.sample_name,
+            cell_index_file=self.cell_index_file,vector_sequence=self.vector_sequence,
+            isolator=self.isolator,cell_index_len=self.cell_index_len,mt_len=self.mt_len,
+            num_cores=self.num_cores,num_errors=self.num_errors,instrument=self.instrument
+        ))
 
     def run(self):
         '''
@@ -247,8 +252,7 @@ class Alignment(luigi.Task):
     def requires(self):
         '''
         '''
-        #yield self.clone(LoadGenomeIndex)
-        yield self.clone(DeMultiplexer)
+        yield self.clone(LoadGenomeIndex)
 
     def run(self):
         ''' The commands to run
