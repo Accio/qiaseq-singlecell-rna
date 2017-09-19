@@ -495,7 +495,7 @@ class CombineSamples(luigi.Task):
         files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*/umi_count.txt"))
         combine_count_files(files_to_merge,self.combined_count_file,True)
         ## Also, aggregate on primer level for targeted
-        if config.seqtype.upper() != 'WTS':
+        if config().seqtype.upper() != 'WTS':
             files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*/umi_count.primers.txt"))
             combine_count_files(files_to_merge,self.combined_count_file,False)
         ## Aggregate metrics for cells
