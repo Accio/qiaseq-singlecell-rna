@@ -13,9 +13,11 @@ from align_transcriptome import star_alignment,star_load_index,star_remove_index
 from count_mt import count_umis,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files
 from combine_sample_results import combine_count_files,combine_cell_metrics
-from create_annotation_tables import create_gene_tree
+from create_annotation_tables import create_gene_tree,create_gene_hash
 
-GENE_TREE = None 
+GENE_TREE = None ## IntervalTree datastructure for use in WTS
+GENE_HASH = None ## Annotations for genes , for use in Targeted case
+
 class config(luigi.Config):
     ''' Initialize values from configuration file
     '''
@@ -318,8 +320,9 @@ class CountMT(luigi.Task):
                 count_umis_wts(GENE_TREE,self.tagged_bam,self.outfile,
                                self.metricsfile,self.logfile)
             else:
-                count_umis(config().primer_file,self.tagged_bam,self.outfile_primer,
-                           self.outfile,self.metricsfile,self.num_cores)
+                count_umis(GENE_HASH,config().primer_file,self.tagged_bam,
+                           self.outfile_primer,self.outfile,
+                           self.metricsfile,self.num_cores)
 
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
@@ -453,9 +456,13 @@ class CombineSamples(luigi.Task):
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
                                               '.verification.txt')
-        ## Annotation information from gencode        
-        global GENE_TREE
-        GENE_TREE = create_gene_tree(config().annotation_gtf)
+        ## Annotation information from gencode
+        if config().seqtype.upper() == 'WTS':
+            global GENE_TREE
+            GENE_TREE = create_gene_tree(config().annotation_gtf)
+        else:
+            global GENE_HASH
+            GENE_HASH = create_gene_hash(config().annotation_gtf)
         
     def requires(self):
         '''
