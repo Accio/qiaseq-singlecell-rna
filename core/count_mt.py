@@ -67,7 +67,6 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
     :param str logfile: the log file to write to
     :param int cores: the number of cores to use
     '''
-
     ## Set up logging
     logger = logging.getLogger("count_umis")
     logger.setLevel(logging.DEBUG)
@@ -151,11 +150,12 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
                 '\t'+gene_type+'\t'+str(mt_count)
     logger.info('Finished MT counting and writing to disk')
 
-def count_umis(primer_bed,tagged_bam,outfile_primer,outfile_gene,metricfile,cores):
+def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metricfile,cores):
     ''' Search for the design spe primers in the tagged bam
     and count molecular tags for each primer
     To do : Make this function shorter
 
+    :param dict gene_hash: a dict of lists for storing gene annotations
     :param str primer_bed: a tsv file <chrom><start><stop><primer_seq><strand><gene>
     :param str tagged_bam: a UMI tagged bam file
     :param str outfile_primer: the output file for counts on primer level
@@ -230,6 +230,7 @@ def count_umis(primer_bed,tagged_bam,outfile_primer,outfile_gene,metricfile,core
     write_metrics(metricfile,metric_dict)
 
     ## Print output results
+
     with open(outfile_primer,'w') as OUT:
         for primer in primer_info:
             chrom,start,stop,seq,revcomp,strand,gene = primer_info[primer]
