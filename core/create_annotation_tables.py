@@ -50,7 +50,7 @@ def create_gene_hash(annotation_gtf):
                 info = contents[-1]
                 gene = info.split(';')[3].split()[1].strip('\"')
                 gene_type = info.split(';')[1].split()[1].strip('\"')
-                cols = [chrom,start,end,strand,info,gene,gene_type]
+                cols = [chrom,start,end,strand,gene,gene_type]
                 if gene in gene_info:
                     print 'duplicate gene: {}'.format(gene)
                 gene_info[gene] = cols
