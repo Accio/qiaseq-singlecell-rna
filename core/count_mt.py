@@ -238,9 +238,9 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
             print >> OUT,chrom+'\t'+start+'\t'+stop+'\t'+strand+'\t'+gene+'\t'+seq+'\t'+str(mt_count)
     with open(outfile_gene,'w') as OUT:
         for gene in mt_counter_gene:
+            mt_count = len(mt_counter_gene[gene])
             if gene.startswith('ERCC-'):
-                mt_count = len(mt_counter_gene[gene])
-                print >> OUT,'N/A\tN/A\tN/A\tN/A\t'+gene+'\tN/A'
+                print >> OUT,'N/A\tN/A\tN/A\tN/A\t'+gene+'\tN/A\t'+str(mt_count)
             else:
                 gene_info = '\t'.join(gene_hash[gene])
-                print >> OUT,gene_info
+                print >> OUT,gene_info+'\t'+str(mt_count)
