@@ -32,7 +32,7 @@ def read_cell_file(cfile,metric_dict):
 
 def combine_cell_metrics(files_to_merge,outfile):
     ''' Combine cell metrics from different samples
-    :param str files_to_merge: the files to merge
+    :param list files_to_merge: the files to merge
     :param str outfile: the outputfile to write the aggregate metrics
     '''
     class MyOrderedDict(OrderedDict):
@@ -68,7 +68,7 @@ def combine_count_files(files_to_merge,outfile,wts):
                     --- cell1
                       --- cell1_Sample2
 
-    :param str files_to_merge: full path to the files to merge
+    :param list files_to_merge: full path to the files to merge
     :param str outfile: The combined outputfile to write to
     :param bool wts: Whether this was whole transcriptome sequencing 
     '''

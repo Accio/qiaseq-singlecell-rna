@@ -500,7 +500,7 @@ class CombineSamples(luigi.Task):
             combine_count_files(files_to_merge,self.combined_count_file,False)
         ## Aggregate metrics for cells
         files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_cell_stats.txt"))
-        combine_cell_metrics(self.output_dir,self.combined_cell_metrics_file)
+        combine_cell_metrics(files_to_merge,self.combined_cell_metrics_file)
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
         
