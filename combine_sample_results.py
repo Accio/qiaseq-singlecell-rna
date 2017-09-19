@@ -1,5 +1,6 @@
 import sys
 import glob
+import os
 from collections import defaultdict,OrderedDict
 
 def read_cell_file(cfile,metric_dict):
