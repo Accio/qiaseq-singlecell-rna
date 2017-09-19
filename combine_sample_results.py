@@ -1,33 +1,16 @@
 import sys
 import glob
-import numpy as np
-import pandas as pd
+import os
 from collections import defaultdict,OrderedDict
 
-def read_count_file(countfile):
-    ''' Read a count file
-    '''
-
-    gene_info = []
-    counts = []
-    header = []
-    i = 0
-    with open(countfile,'r') as IN:
-        for line in IN:
-            contents = line.strip('\n').split('\t')
-            if i == 0:
-                i+=1
-                header = contents[6:]
-                continue
-            gene_info.append('\t'.join(contents[0:6]))
-            counts.append(contents[6:])
-
-    return (header,gene_info,counts)
-
 def read_cell_file(cfile,metric_dict):
-    '''
-    '''
+    ''' Read a cell metrics file and return the parsed metrics as a dict
 
+    :param str cfile: the cell metric file
+    :param dict metric_dict: a dict of dict of metrics
+    :return the dictionary of parsed metrics
+    :rtype: dict
+    '''
     i=0
     columns = []
 
@@ -47,18 +30,18 @@ def read_cell_file(cfile,metric_dict):
 
     return metric_dict
 
-def combine_cell_metrics(output_folder,outfile):
+def combine_cell_metrics(files_to_merge,outfile):
+    ''' Combine cell metrics from different samples
+    :param list files_to_merge: the files to merge
+    :param str outfile: the outputfile to write the aggregate metrics
     '''
-    '''
-
     class MyOrderedDict(OrderedDict):
         def __missing__(self,key):
             val = self[key] = MyOrderedDict()
             return val
     cell_metrics = MyOrderedDict()
 
-    cellfiles = glob.glob('{out}/*/*_cell_stats.txt'.format(out=output_folder))
-    for cfile in cellfiles:
+    for cfile in files_to_merge:
         cell_metrics = read_cell_file(cfile,cell_metrics)
 
     with open(outfile,'w') as OUT:
@@ -74,68 +57,60 @@ def combine_cell_metrics(output_folder,outfile):
                 out = out+'\t'+cell_metrics[metric][cell]
             OUT.write(out+'\n')
 
-def combine_count_files(output_folder,outfile):
-    ''' Combine multiple sample count files into 1
+def combine_count_files(files_to_merge,outfile,wts):
+    ''' Function to combine cells from different samples into 1 file
+    The directory strucuture of a typical run loooks like : 
+              <output_folder> 
+                --- Sample1
+                  --- cell1
+                    --- cell1_Sample1
+                --- Sample2
+                    --- cell1
+                      --- cell1_Sample2
+
+    :param list files_to_merge: full path to the files to merge
+    :param str outfile: The combined outputfile to write to
+    :param bool wts: Whether this was whole transcriptome sequencing 
     '''
-
-    prev_info = None
-    prev_header = None
-    samples = glob.glob('{out}/*/*.umi.counts.txt'.format(out=output_folder))
-    nsamples = len(samples)
-    prev_column = 0
-    headers = []
-
-    for countfile in samples:
-        header,gene_info,counts = read_count_file(countfile)
-        if prev_info:
-            assert prev_info[0] == gene_info[0],"Mismatch in column ordering"
-            assert prev_info[1] == gene_info[1],"Mismatch in column ordering"
-            assert prev_info[-1] == gene_info[-1],"Mismatch in column ordering"
-            prev_column = (prev_column + ncells)
-        else:
-            prev_info = gene_info
-            prev_header = header
-            ngenes = len(gene_info)
-            ncells = len(counts[0])
-            count_matrix = np.empty(shape=(ngenes,nsamples*ncells),dtype='S9')
-            print np.shape(count_matrix)
-        headers.extend(header)
-
-        ## Update count matrix
-        i=0
-        print countfile
-        print prev_column,prev_column+ncells
-        print ngenes
-        bound = prev_column+ncells
-        for c in counts:
-            try:
-                count_matrix[i,prev_column:bound] = c
-            except:
-                print c
-                print count_matrix[i,:]
-                Exception("Error in dimensions when assinging values to count matrix")
-            i+=1
-
+    i = 0
+    UMI = defaultdict(lambda:defaultdict(int))
+    header_cells = set()
+    ## Iterate over the files to merge
+    for f in files_to_merge:
+        cell = os.path.dirname(f).split('/')[-1].split('_')[0].strip('Cell')
+        sample_name = os.path.dirname(f).split('/')[-2]
+        check_counts = []
+        with open(f,'r') as IN:
+            cell_key = sample_name+'_Cell'+str(cell)
+            for line in IN:
+                k1,k2,k3,k4,k5,k6,umi = line.rstrip('\n').split('\t')
+                key = (k1,k2,k3,k4,k5,k6)
+                ## Hash the umi counts by annotation and cells
+                UMI[key][cell_key] = umi
+                check_counts.append(int(umi))
+            ## Add check here to see if cells are part of user's listing
+            if not all(e == 0 for e in check_counts): ## Check to make sure the cell doesnt have zero counts
+                header_cells.add(cell_key)
+    ## Create header
+    if wts:
+        header = "chromosome\tstart\tstop\tstrand\tgene\tgene_type\t{cells}\n"
+    else:
+        header = "chromosome\tstart\tstop\tstrand\tgene\tprimer_sequence\t{cells}\n"
+    temp = '\t'.join(list(header_cells))
+    header.format(cells=temp)
+    ## Print output
     with open(outfile,'w') as OUT:
-        ## Convert numpy array to pandas dataframe for column name subsetting
-        temp = pd.DataFrame(data=count_matrix,
-                            index=gene_info,
-                            columns=headers)
-        print temp.shape
-        temp = temp[temp.columns[(temp != '0').any()]]
-        print temp.shape
-        count_matrix = temp.as_matrix()
-        new_headers = list(temp)
-
-        annotation = "chrom\tstart\tstop\tstrand\tgene\tgene_type"
-        head = '\t'.join(new_headers)
-
-        OUT.write(annotation+'\t'+head+'\n')
-        for i in range(0,len(gene_info)):
-            out = gene_info[i] + '\t' + '\t'.join(count_matrix[i,:])+ '\n'
-            OUT.write(out)
-
-
+        OUT.write(header)
+        for key in UMI:
+            out = '\t'.join(key)
+            for cell in header_cells:
+                if cell not in UMI[key]:
+                    out = out + '\t0'
+                else:
+                    out = out + '\t{}'.format(UMI[key][cell])
+            OUT.write(out+'\n')
+        
+                
 if __name__ == '__main__':
-    #combine_count_files(sys.argv[1],sys.argv[2])
+    combine_count_files(sys.argv[1],sys.argv[2])
     combine_cell_metrics(sys.argv[1],sys.argv[3])

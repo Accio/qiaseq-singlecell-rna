@@ -13,9 +13,12 @@ from align_transcriptome import star_alignment,star_load_index,star_remove_index
 from count_mt import count_umis,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files
 from combine_sample_results import combine_count_files,combine_cell_metrics
-from create_annotation_tables import create_gene_tree
+from create_annotation_tables import create_gene_tree,create_gene_hash
 
-GENE_TREE = None 
+## Some globals to cache across tasks
+GENE_TREE = None ## IntervalTree datastructure for use in WTS
+GENE_HASH = None ## Annotations for genes , for use in Targeted case
+
 class config(luigi.Config):
     ''' Initialize values from configuration file
     '''
@@ -35,7 +38,7 @@ class MyExtTask(luigi.ExternalTask):
         return luigi.LocalTarget(self.file_loc)
 
 class ExtractMultiplexRegion(luigi.Task):
-    ''' Task for extracted the <cell_index><mt> region
+    ''' Task for extracting the <cell_index><mt> region
     from R2 reads
     '''
 
@@ -77,7 +80,7 @@ class ExtractMultiplexRegion(luigi.Task):
                                            '%s_multiplex_region.txt'%self.sample_name)
     def requires(self):
         ''' Dependencies for this task
-        The R2 fastq reads must be present
+        R2 fastq file must be present
         '''
         return MyExtTask(self.R2_fastq)
 
@@ -96,7 +99,7 @@ class ExtractMultiplexRegion(luigi.Task):
             print >> OUT,"verification"
 
     def output(self):
-        ''' Check for the existence of the output file
+        ''' Check for the existence of the verification file
         '''
         return luigi.LocalTarget(self.verification_file)
 
@@ -118,7 +121,7 @@ class DeMultiplexer(luigi.Task):
     instrument = luigi.Parameter()
 
     def __init__(self,*args,**kwargs):
-        ''' The constructor
+        ''' Class constructor
         '''
         super(DeMultiplexer,self).__init__(*args,**kwargs)
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
@@ -133,12 +136,12 @@ class DeMultiplexer(luigi.Task):
                                            '%s_multiplex_region.txt'%self.sample_name)
 
     def requires(self):
-        ''' We need the the ExtractMultiplexRegion task to be finished
+        ''' We need the ExtractMultiplexRegion task to be finished
         '''
         return self.clone(ExtractMultiplexRegion)
 
     def run(self):
-        '''
+        ''' Work entails demultiplexing of Fastqs
         '''
         if config().seqtype.upper() == 'WTS':
             create_cell_fastqs(self.sample_dir,self.temp_metric_file,
@@ -153,7 +156,7 @@ class DeMultiplexer(luigi.Task):
             print >> OUT,"verification"
 
     def output(self):
-        '''
+        ''' Verify the output from this task
         '''
         return luigi.LocalTarget(self.verification_file)
 
@@ -174,12 +177,12 @@ class LoadGenomeIndex(luigi.Task):
                                               '.verification.txt')
 
     def requires(self):
-        ''' The dependency for this task is the existence of the genome dir
+        ''' Dependency for this task is the existence of the genome dir
         '''
         return MyExtTask(config().genome_dir)
 
     def run(self):
-        '''
+        ''' Work entails loading the genome index
         '''
         star_load_index(config().star,config().genome_dir,config().star_load_params)
         ## Create the verification file
@@ -187,7 +190,7 @@ class LoadGenomeIndex(luigi.Task):
             print >> OUT,"verification"
 
     def output(self):
-        ''' The output from this task is the verification task
+        ''' Output from this task is the verification file
         '''
         return luigi.LocalTarget(self.verification_file)
 
@@ -232,13 +235,13 @@ class Alignment(luigi.Task):
                                               '.'+str(self.cell_num)+
                                               '.verification.txt')
     def requires(self):
-        '''
+        ''' Task requires loading of GenomeIndex and Demultiplexing of Fastqs
         '''
         yield LoadGenomeIndex(output_dir=self.output_dir)
         yield self.clone(DeMultiplexer)
 
     def run(self):
-        ''' The commands to run
+        ''' Work is to run STAR alignment
         '''
         if os.path.getsize(self.cell_fastq) > 0: ## Make sure the file is not empty
             ## Do the alignment
@@ -254,7 +257,7 @@ class Alignment(luigi.Task):
             print >> OUT,"verification"
 
     def output(self):
-        ''' The result from this task is the creation of the bam file
+        ''' Output from this task for verification
         '''
         return luigi.LocalTarget(self.verification_file)
 
@@ -283,7 +286,7 @@ class CountMT(luigi.Task):
     cell_index = luigi.Parameter()
 
     def __init__(self,*args,**kwargs):
-        ''' The Class constructor
+        ''' Class constructor
         '''
         super(CountMT,self).__init__(*args,**kwargs)
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
@@ -306,20 +309,21 @@ class CountMT(luigi.Task):
                                     '.'+str(self.cell_num)+'.log.txt')
 
     def requires(self):
-        ''' The requirement is the completion of the Alignment task
+        ''' Requirement is the completion of the Alignment task
         '''
         return self.clone(Alignment)
 
     def run(self):
-        '''
+        ''' Work to be done is counting of UMIs
         '''
         if os.path.getsize(self.cell_fastq) > 0:
             if config().seqtype.upper() == 'WTS':
                 count_umis_wts(GENE_TREE,self.tagged_bam,self.outfile,
                                self.metricsfile,self.logfile)
             else:
-                count_umis(config().primer_file,self.tagged_bam,self.outfile_primer,
-                           self.outfile,self.metricsfile,self.num_cores)
+                count_umis(GENE_HASH,config().primer_file,self.tagged_bam,
+                           self.outfile_primer,self.outfile,
+                           self.metricsfile,self.num_cores)
 
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
@@ -346,7 +350,7 @@ class JoinCountFiles(luigi.Task):
     instrument = luigi.Parameter()
 
     def __init__(self,*args,**kwargs):
-        ''' The class constructor
+        ''' Class constructor
         '''
         super(JoinCountFiles,self).__init__(*args,**kwargs)
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
@@ -374,7 +378,8 @@ class JoinCountFiles(luigi.Task):
 
     
     def requires(self):
-        '''
+        ''' Dependncies are the completion of the individual MT counting tasks
+        for each cell
         '''
         ## Schedule the dependencies first
         dependencies = []
@@ -402,7 +407,7 @@ class JoinCountFiles(luigi.Task):
         yield dependencies        
 
     def run(self):
-        '''
+        ''' Work to be done is merging individual cell files for a given sample
         '''
         ## Merge gene level count files first
         files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/umi_count.txt"))
@@ -423,7 +428,7 @@ class JoinCountFiles(luigi.Task):
             print >> OUT,"verification"
 
     def output(self):
-        ''' The output from this task
+        ''' Output from this task
         '''
         return luigi.LocalTarget(self.verification_file)
 
@@ -441,7 +446,7 @@ class CombineSamples(luigi.Task):
     num_errors = luigi.IntParameter()
 
     def __init__(self,*args,**kwargs):
-        ''' The class constructor
+        ''' Class constructor
         '''
         super(CombineSamples,self).__init__(*args,**kwargs)
         self.combined_count_file = os.path.join(self.output_dir,'combined.umi.counts.txt')
@@ -453,12 +458,16 @@ class CombineSamples(luigi.Task):
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
                                               '.verification.txt')
-        ## Annotation information from gencode        
-        global GENE_TREE
-        GENE_TREE = create_gene_tree(config().annotation_gtf)
+        ## Annotation information from gencode
+        if config().seqtype.upper() == 'WTS':
+            global GENE_TREE
+            GENE_TREE = create_gene_tree(config().annotation_gtf)
+        else:
+            global GENE_HASH
+            GENE_HASH = create_gene_hash(config().annotation_gtf)
         
     def requires(self):
-        '''
+        ''' Task dependencies are joining sample count files
         '''
         dependencies = []
         parser = ConfigParser.ConfigParser()
@@ -477,21 +486,26 @@ class CombineSamples(luigi.Task):
                     num_errors=self.num_errors,instrument=instrument
                 )
             )
-            
-        
         yield dependencies        
-        
-            
+
     def run(self):
+        ''' Work to run is merging sample count and metric files
         '''
-        '''
-        combine_count_files(self.output_dir,self.combined_count_file)
-        combine_cell_metrics(self.output_dir,self.combined_cell_metrics_file)
+        ## Aggregate on gene level
+        files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*/umi_count.txt"))
+        combine_count_files(files_to_merge,self.combined_count_file,True)
+        ## Also, aggregate on primer level for targeted
+        if config().seqtype.upper() != 'WTS':
+            files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*/umi_count.primers.txt"))
+            combine_count_files(files_to_merge,self.combined_count_file,False)
+        ## Aggregate metrics for cells
+        files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_cell_stats.txt"))
+        combine_cell_metrics(files_to_merge,self.combined_cell_metrics_file)
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
         
     def output(self):
-        '''
+        ''' Output from this task
         '''
         return luigi.LocalTarget(self.verification_file)
        
