@@ -165,6 +165,7 @@ def count_umis(primer_bed,tagged_bam,outfile_primer,outfile_gene,metricfile,core
     primer_info = defaultdict(list)
     primer_tree = defaultdict(lambda:IntervalTree())
     mt_counter = defaultdict(lambda:defaultdict(int))
+    mt_counter_gene = defaultdict(lambda:defaultdict(int))
     patterns = defaultdict(lambda:defaultdict(list))
     primer_miss=0
     primer_offtarget=0
