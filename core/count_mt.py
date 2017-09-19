@@ -5,7 +5,7 @@ from guppy import hpy
 import pysam
 from pathos.multiprocessing import ProcessingPool as Pool
 import regex
-import IntervalTree
+from intervaltree import IntervalTree
 from collections import defaultdict,OrderedDict
 from functools import partial
 from Bio.Seq import Seq
