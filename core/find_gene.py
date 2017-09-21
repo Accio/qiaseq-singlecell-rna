@@ -53,11 +53,10 @@ def find_gene(gene_tree,read_tup):
         res = gene_tree[read_chrom]['+'].search(read_pos,read_end)
 
     if res: ## If the search was successful
-        read_end = return_read_end_pos(read_pos,read_cigar,flag=True)
         num_hits = len(res)
         logger.info("{}".format(num_hits))
         if num_hits > 1:
-            logger.info("{read_id}: intersected with {hits} in genic regions".format(read_id=read_id,hits=num_hits))
+            logger.info("{read_id}: intersected with the genes : \n{hits}".format(read_id=read_id,hits=res))
             ## Choose the closest 3' location gene
             prev = None
             for result in res:
@@ -82,21 +81,8 @@ def find_gene(gene_tree,read_tup):
                         three_prime_new = result.data[1]
                         three_prime_read = read_end
 
-                    gene_type_new = result.data[-1]
-                    gene_type_old = prev[-1]
                     diff_three_prime_prev = abs(three_prime_prev - three_prime_read)
                     diff_three_prime_new = abs(three_prime_new - three_prime_read)
-
-                    if gene_type_new != gene_type_old:
-                        if gene_type_new != 'protein_coding':
-                            if gene_type_old == 'protein_coding':
-                                logger.info("{read_id}: Checking {gene} , not chosen as it is not protein_coding".format(read_id=read_id,gene=result.data[4]))
-                                continue
-                        else:
-                            logger.info("{read_id}: Chose {gene2} over {gene1} because it is protein coding".format(read_id=read_id,gene1=prev[4],gene2=result.data[4]))
-                            prev = result.data
-                            prev_o = o
-                            continue
 
                     if diff_three_prime_prev == diff_three_prime_new:
                         if o < prev_o: ## Look at overlaps
