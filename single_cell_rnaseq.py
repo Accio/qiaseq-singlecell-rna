@@ -388,7 +388,7 @@ class JoinCountFiles(luigi.Task):
             cell_dir = os.path.join(self.sample_dir,'Cell%i_%s'%(
                 cell_num,cell_index))
             cell_fastq = os.path.join(cell_dir,'cell_'+str(cell_num)+
-                                      '_R1.fastq')
+                                      '_R1.fastq.gz')
             dependencies.append(CountMT(R1_fastq=self.R1_fastq,
                                         R2_fastq=self.R2_fastq,
                                         output_dir=self.output_dir,

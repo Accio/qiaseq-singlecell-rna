@@ -218,10 +218,10 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
 
     for cell_index,cell_num in cell_indices.items():
         fastq=os.path.join(base_dir,'Cell'+str(cell_num)+'_'+cell_index+
-                                         '/cell_'+str(cell_num)+'_R1.fastq')
+                                         '/cell_'+str(cell_num)+'_R1.fastq.gz')
         metric=os.path.join(base_dir,'Cell'+str(cell_num)+'_'+cell_index+
                                          '/cell_'+str(cell_num)+'_demultiplex_stats.txt')
-        FASTQS[cell_index] = open(fastq,'w')
+        FASTQS[cell_index] = gzip.open(fastq,'w')
         METRICS[cell_index] = metric
     ## Store metrics for each cell
     cell_metrics = collections.defaultdict(lambda:collections.defaultdict(int))
