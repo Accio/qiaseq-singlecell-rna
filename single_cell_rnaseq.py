@@ -1,5 +1,6 @@
 import os
 import glob
+import gzip
 import sys
 import luigi
 import sqlite3
@@ -243,15 +244,21 @@ class Alignment(luigi.Task):
     def run(self):
         ''' Work is to run STAR alignment
         '''
-        if os.path.getsize(self.cell_fastq) > 0: ## Make sure the file is not empty
+        def is_gzip_empty(gzipfile):
+            with gzip.open(gzipfile,'r') as IN:
+                i=0
+                for line in IN:
+                  if i == 5:
+                      break
+                  i+=1
+            return i == 0
+        if not is_gzip_empty(self.cell_fastq): ## Make sure the file is not empty
             ## Do the alignment
             star_alignment(config().star,config().genome_dir,
                            os.path.join(self.cell_dir,''),config().star_params,
                            self.cell_fastq)
-            ## Check if the bam file has any records ?
             ## Add bam tags
             annotate_bam_umi(self.multiplex_file,self.bam,self.tagged_bam)
-
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
