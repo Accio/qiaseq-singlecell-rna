@@ -19,6 +19,19 @@ from create_annotation_tables import create_gene_tree,create_gene_hash
 ## Some globals to cache across tasks
 GENE_TREE = None ## IntervalTree datastructure for use in WTS
 GENE_HASH = None ## Annotations for genes , for use in Targeted case
+def is_gzip_empty(gzipfile):
+    ''' Helper function to check if a gzip file is empty
+    :param str gzipfile: the .gz file
+    :returns Whether the file is empty or not
+    :rtype bool
+    '''
+    with gzip.open(gzipfile,'r') as IN:
+        i=0
+        for line in IN:
+            if i == 5:
+                break
+            i+=1
+    return i == 0
 
 class config(luigi.Config):
     ''' Initialize values from configuration file
@@ -244,14 +257,6 @@ class Alignment(luigi.Task):
     def run(self):
         ''' Work is to run STAR alignment
         '''
-        def is_gzip_empty(gzipfile):
-            with gzip.open(gzipfile,'r') as IN:
-                i=0
-                for line in IN:
-                  if i == 5:
-                      break
-                  i+=1
-            return i == 0
         if not is_gzip_empty(self.cell_fastq): ## Make sure the file is not empty
             ## Do the alignment
             star_alignment(config().star,config().genome_dir,
@@ -323,7 +328,7 @@ class CountMT(luigi.Task):
     def run(self):
         ''' Work to be done is counting of UMIs
         '''
-        if os.path.getsize(self.cell_fastq) > 0:
+        if not is_gzip_empty(self.cell_fastq): ## Make sure the file is not empty
             if config().seqtype.upper() == 'WTS':
                 count_umis_wts(GENE_TREE,self.tagged_bam,self.outfile,
                                self.metricsfile,self.logfile)
