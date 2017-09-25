@@ -29,6 +29,7 @@ def merge_count_files(basedir,out_file,sample_name,wts,ncells,files_to_merge):
         cell = os.path.dirname(f).split('/')[-1].split('_')[0].strip('Cell')
         with open(f,'r') as IN:
             for line in IN:
+                print f,line
                 k1,k2,k3,k4,k5,k6,mt = line.rstrip('\n').split('\t')
                 key = (k1,k2,k3,k4,k5,k6)
                 MT[key][cell] = mt
