@@ -42,7 +42,7 @@ def read_sample_metrics(metric_file,metric_dict):
         sample = os.path.basename(metric_file)
         assert sample != '', "Error could not identify sample name from file path : {}".format(metric_file)
         for line in IN:
-            metric,val = line.strip('\n')split(':')
+            metric,val = line.strip('\n').split(':')
             metric_dict[sample][metric] = float(val)
     return metric_dict
 
