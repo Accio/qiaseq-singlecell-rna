@@ -13,7 +13,7 @@ from demultiplex_cells import create_cell_fastqs
 from align_transcriptome import star_alignment,star_load_index,star_remove_index,annotate_bam_umi
 from count_mt import count_umis,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files
-from combine_sample_results import combine_count_files,combine_cell_metrics
+from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics
 from create_annotation_tables import create_gene_tree,create_gene_hash
 
 ## Some globals to cache across tasks
@@ -55,7 +55,6 @@ class ExtractMultiplexRegion(luigi.Task):
     ''' Task for extracting the <cell_index><mt> region
     from R2 reads
     '''
-
     ## The parameters for this task
     R1_fastq = luigi.Parameter()
     R2_fastq = luigi.Parameter()
@@ -462,7 +461,9 @@ class CombineSamples(luigi.Task):
         '''
         super(CombineSamples,self).__init__(*args,**kwargs)
         self.combined_count_file = os.path.join(self.output_dir,'combined.umi.counts.txt')
+        self.combined_count_file_primers = os.path.join(self.output_dir,'combined.umi.counts.primers.txt')
         self.combined_cell_metrics_file = os.path.join(self.output_dir,'combined.cell.metrics.txt')
+        self.combined_sample_metrics_file = os.path.join(self.output_dir,'combined.sample.metrics.txt')
         ## The verification file for this task
         self.target_dir = os.path.join(self.output_dir,'targets')
         if not os.path.exists(self.target_dir):
@@ -509,13 +510,16 @@ class CombineSamples(luigi.Task):
         ## Also, aggregate on primer level for targeted
         if config().seqtype.upper() != 'WTS':
             files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*/umi_count.primers.txt"))
-            combine_count_files(files_to_merge,self.combined_count_file,False)
+            combine_count_files(files_to_merge,self.combined_count_file_primers,False)
         ## Aggregate metrics for cells
         files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_cell_stats.txt"))
         combine_cell_metrics(files_to_merge,self.combined_cell_metrics_file)
+        ## Aggregate metrics across different samples
+        files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_read_stats.txt"))
+        combine_sample_metrics(files_to_merge,self.combined_sample_metrics_file)
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
-        
+
     def output(self):
         ''' Output from this task
         '''
