@@ -120,7 +120,7 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
         header = (
             "Cell\tTotal_reads\tTotal_pass_QC_reads\tDetected_genes\t"
             "Mapped_reads\tUniquely_Mapped_reads\tReads_used\tReads_used_ERCC\t"
-            "UMIs_used\tReads_per_UMI\tMapped_reads_ratio\tUsable_reads_ratio\n"
+            "UMIs_used\tMapped_reads_ratio\tUsable_reads_ratio\n"
         )
         header_len = len(header.split('\t'))
     else:            
@@ -128,7 +128,7 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
             "Cell\tTotal_reads\tTotal_pass_QC_reads\tDetected_primers\t"
             "Detected_genes\tReads_offtarget\tReads_Mismatch\tReads_offloci\t"
             "Reads_unmapped\tReads_endogenous_seq_not_matched\tReads_used\t"
-            "UMIs_used\tReads_per_UMI\tUsable_reads_ratio\n"
+            "UMIs_used\tUsable_reads_ratio\n"
         )
         header_len = len(header.split('\t'))
     with open(outfile,'w') as OUT:
@@ -152,10 +152,6 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
                         str(cell_metrics[cell]['num_umis_used']),
                         float_to_string(
                             round(float(
-                                cell_metrics[cell]['num_reads_used']) / \
-                                  cell_metrics[cell]['num_umis_used'],2)),
-                        float_to_string(
-                            round(float(
                                 cell_metrics[cell]['num_reads_mapped']) / \
                                   cell_metrics[cell]['after_qc_reads'],2)),
                         float_to_string(
@@ -176,10 +172,6 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
                         str(cell_metrics[cell]['num_reads_used']),
                         str(cell_metrics[cell]['num_reads_used_ercc']),
                         str(cell_metrics[cell]['num_umis_used']),
-                        float_to_string(
-                            round(float(
-                                cell_metrics[cell]['num_reads_used']) / \
-                                  cell_metrics[cell]['num_umis_used'],2)),
                         float_to_string(
                             round(float(
                                 cell_metrics[cell]['num_reads_used']) / \
