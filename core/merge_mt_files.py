@@ -128,7 +128,7 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
             "Cell\tTotal_reads\tTotal_pass_QC_reads\tDetected_primers\t"
             "Detected_genes\tReads_offtarget\tReads_Mismatch\tReads_offloci\t"
             "Reads_unmapped\tReads_endogenous_seq_not_matched\tReads_used\t"
-            "UMIs_used\tUsable_reads_ratio\n"
+            "Reads_used_ERCC\tUMIs_used\tUsable_reads_ratio\n"
         )
         header_len = len(header.split('\t'))
     with open(outfile,'w') as OUT:
