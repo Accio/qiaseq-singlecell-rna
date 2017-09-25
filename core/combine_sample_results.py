@@ -66,7 +66,7 @@ def combine_sample_metrics(files_to_merge,outfile):
             out = metric
             for sample in sample_metrics[metric]:
                 out = out+'\t'+float_to_string(round(sample_metrics[metric][sample],2))
-                OUT.write(out)
+            OUT.write(out+'\n')
         
 def combine_cell_metrics(files_to_merge,outfile):
     ''' Combine cell metrics from different samples
@@ -129,10 +129,11 @@ def combine_count_files(files_to_merge,outfile,wts):
     else:
         header = "chromosome\tstart\tstop\tstrand\tgene\tprimer_sequence\t{cells}\n"
     temp = '\t'.join(list(header_cells))
-    header = header.format(cells=temp)
+    head = header.format(cells=temp)
+    print head
     ## Print output
     with open(outfile,'w') as OUT:
-        OUT.write(header)
+        OUT.write(head)
         for key in UMI:
             out = '\t'.join(key)
             for cell in header_cells:
