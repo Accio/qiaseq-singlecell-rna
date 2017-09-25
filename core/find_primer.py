@@ -47,11 +47,13 @@ def find_primer(primer_tree,read_tup):
 
     res = primer_tree[read_chrom].search(loci_to_search-1,loci_to_search+1) ## allowing a shift in primer start loci by 1 base pair , account for soft clip in the begining
     if res:
+        for i in range(res):
+        '''
         if len(res) > 1:
             print "Debug: The Primers : {}".format(res)
             print "Debug: The Read : {}".format(read_tup)
             raise Exception("error in primer finding, read spans more than 2 primer loci") ## take multiple hits
-        else:
+        '''
             result = res.pop()
             pattern,primer = result.data
             if regex.match(pattern,read_sequence): ## Check if the primer has approximate match to the read sequence
@@ -60,7 +62,7 @@ def find_primer(primer_tree,read_tup):
                     return (primer , mt, 1)
                 else:
                     return (primer, mt, 0)
-            else:
-                return ('Unknown_Regex',mt,0)
+            
+        return ('Unknown_Regex',mt,0)
     else:
         return('Unknown_Loci',mt,0)
