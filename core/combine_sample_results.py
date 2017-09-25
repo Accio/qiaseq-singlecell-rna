@@ -2,6 +2,7 @@ import sys
 import glob
 import os
 from collections import defaultdict,OrderedDict
+from merge_mt_files import float_to_string
 
 def read_cell_file(cfile,metric_dict):
     ''' Read a cell metrics file and return the parsed metrics as a dict
@@ -23,31 +24,62 @@ def read_cell_file(cfile,metric_dict):
                 continue
             if contents[1:] == ['0']*len(contents[1:]):
                 continue
-
             cell= contents[0]
             for i,metric in enumerate(metrics[1:]):
                 metric_dict[metric][cell]= contents[i+1]
 
     return metric_dict
 
+class MyOrderedDict(OrderedDict):
+    def __missing__(self,key):
+        val = self[key] = MyOrderedDict()
+        return val
+
+def read_sample_metrics(metric_file,metric_dict):
+    ''' Read a sample metrics file
+    '''
+    with open(metric_file,'r') as IN:
+        sample = os.path.basename(metric_file)
+        assert sample != '', "Error could not identify sample name from file path : {}".format(metric_file)
+        for line in IN:
+            metric,val = line.strip('\n')split(':')
+            metric_dict[sample][metric] = float(val)
+    return metric_dict
+
+def combine_sample_metrics(files_to_merge,outfile):
+    ''' Combine metrics on the sample level similar to the cells
+    :param list files_to_merge: the files to merge
+    :param outfile: the output file to write to
+    '''
+    sample_metrics = MyOrderedDict()
+    ## Read metrics for each sample
+    for sfile in files_to_merge:
+        sample_metrics = read_sample_metrics(sfile,sample_metrics)
+    ## Combine and write resultant output file
+    with open(outfile,'w') as OUT:
+        i=0
+        for metric in sample_metrics:
+            if i == 0:
+                header = 'Metrics/Samples'+'\t'.join(sample_metrics[metric].keys())
+                OUT.write(header+'\n')
+                i+=1
+            out = metric
+            for sample in sample_metrics[metric]:
+                out = out+'\t'+float_to_string(round(sample_metrics[metric][sample],2))
+                OUT.write(out)
+        
 def combine_cell_metrics(files_to_merge,outfile):
     ''' Combine cell metrics from different samples
     :param list files_to_merge: the files to merge
     :param str outfile: the outputfile to write the aggregate metrics
-    '''
-    class MyOrderedDict(OrderedDict):
-        def __missing__(self,key):
-            val = self[key] = MyOrderedDict()
-            return val
+    '''    
     cell_metrics = MyOrderedDict()
-
     for cfile in files_to_merge:
         cell_metrics = read_cell_file(cfile,cell_metrics)
 
     with open(outfile,'w') as OUT:
         i=0
         for metric in cell_metrics:
-            print metric
             if i == 0: ## Write Header
                 header = 'Metrics/Cells\t'+'\t'.join(cell_metrics[metric].keys())
                 OUT.write(header+'\n')
@@ -108,9 +140,5 @@ def combine_count_files(files_to_merge,outfile,wts):
                     out = out + '\t0'
                 else:
                     out = out + '\t{}'.format(UMI[key][cell])
-            OUT.write(out+'\n')
-        
+            OUT.write(out+'\n')      
                 
-if __name__ == '__main__':
-    combine_count_files(sys.argv[1],sys.argv[2])
-    combine_cell_metrics(sys.argv[1],sys.argv[3])
