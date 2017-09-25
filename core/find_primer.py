@@ -46,7 +46,7 @@ def find_primer(primer_tree,read_tup):
 
     res = primer_tree[read_chrom].search(loci_to_search-1,loci_to_search+1) ## allowing a shift in primer start loci by 1 base pair , account for soft clip in the begining
     if res:
-        for i in range(res):
+        for i in range(len(res)):
             result = res.pop()
             pattern,primer = result.data
             if regex.match(pattern,read_sequence): ## Check if the primer has approximate match to the read sequence
