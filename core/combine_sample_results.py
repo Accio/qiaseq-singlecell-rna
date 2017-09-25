@@ -43,7 +43,7 @@ def read_sample_metrics(metric_file,metric_dict):
         assert sample != '', "Error could not identify sample name from file path : {}".format(metric_file)
         for line in IN:
             metric,val = line.strip('\n').split(':')
-            metric_dict[sample][metric] = float(val)
+            metric_dict[metric][sample] = float(val)
     return metric_dict
 
 def combine_sample_metrics(files_to_merge,outfile):
@@ -60,7 +60,7 @@ def combine_sample_metrics(files_to_merge,outfile):
         i=0
         for metric in sample_metrics:
             if i == 0:
-                header = 'Metrics/Samples'+'\t'.join(sample_metrics[metric].keys())
+                header = 'Metrics/Samples\t'+'\t'.join(sample_metrics[metric].keys())
                 OUT.write(header+'\n')
                 i+=1
             out = metric
