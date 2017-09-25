@@ -48,6 +48,8 @@ def find_primer(primer_tree,read_tup):
     res = primer_tree[read_chrom].search(loci_to_search-1,loci_to_search+1) ## allowing a shift in primer start loci by 1 base pair , account for soft clip in the begining
     if res:
         if len(res) > 1:
+            print "Debug: The Primers : {}".format(res)
+            print "Debug: The Read : {}".format(read_tup)
             raise Exception("error in primer finding, read spans more than 2 primer loci") ## take multiple hits
         else:
             result = res.pop()
