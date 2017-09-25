@@ -236,7 +236,8 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
                 OUT.write('N/A\tN/A\tN/A\tN/A\t'+gene+'\tN/A\t'+str(umi_count)+'\n')
             else:
                 if len(gene_hash[gene]) != 6: ## Temp fix for dealing with edge cases where gene is not present in annotation file
-                    gene_info = ['N/A','N/A','N/A','N/A',gene,'N/A']
+                    temp = ['N/A','N/A','N/A','N/A',gene,'N/A']
+                    gene_info = '\t'.join(temp)
                 else:
                     gene_info = '\t'.join(gene_hash[gene])
                 OUT.write(gene_info+'\t'+str(umi_count)+'\n')
