@@ -129,7 +129,7 @@ def combine_count_files(files_to_merge,outfile,wts):
     else:
         header = "chromosome\tstart\tstop\tstrand\tgene\tprimer_sequence\t{cells}\n"
     temp = '\t'.join(list(header_cells))
-    header.format(cells=temp)
+    header = header.format(cells=temp)
     ## Print output
     with open(outfile,'w') as OUT:
         OUT.write(header)
