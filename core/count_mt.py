@@ -235,7 +235,8 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
             if gene.startswith('ERCC-'):
                 OUT.write('N/A\tN/A\tN/A\tN/A\t'+gene+'\tN/A\t'+str(umi_count)+'\n')
             else:
-                assert len(gene_hash[gene]) == 6, "Error in column length for gene:\n {gene} : {info}".format(gene=gene,info=gene_hash[gene])
+                if len(gene_hash[gene]) != 6: ## Temp fix for dealing with edge cases where gene is not present in annotation file
+                    gene_info = ['N/A','N/A','N/A','N/A',gene,'N/A']
                 gene_info = '\t'.join(gene_hash[gene])
                 OUT.write(gene_info+'\t'+str(umi_count)+'\n')
 
