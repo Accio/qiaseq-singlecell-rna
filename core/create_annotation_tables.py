@@ -29,7 +29,7 @@ def create_gene_anno(annotation_db_file,annotation_gtf):
                 end = contents[4]
                 strand = contents[6]
                 info = contents[-1]
-                gene = info.split(';')[3].split()[1].strip('\"')
+                gene = info.split(';')[2].split()[1].strip('\"')
                 gene_type = info.split(';')[1].split()[1].strip('\"')
                 cols = [chrom,start,end,strand,info,gene,gene_type]
                 cur.execute('''INSERT INTO gene_annotation VALUES (?,?,?,?,?,?,?)''',cols)
@@ -52,7 +52,7 @@ def create_gene_hash(annotation_gtf):
                 end = contents[4]
                 strand = contents[6]
                 info = contents[-1]
-                gene = info.split(';')[3].split()[1].strip('\"')
+                gene = info.split(';')[2].split()[1].strip('\"')
                 gene_type = info.split(';')[1].split()[1].strip('\"')
                 cols = [chrom,start,end,strand,gene,gene_type]
                 if gene in gene_info:
@@ -77,7 +77,7 @@ def create_gene_tree(annotation_gtf,merge_coordinates=False):
                 end = int(contents[4])
                 strand = contents[6]
                 info = contents[-1]
-                gene = info.split(';')[3].split()[1].strip('\"')
+                gene = info.split(';')[2].split()[1].strip('\"')
                 gene_type = info.split(';')[1].split()[1].strip('\"')
 
                 if gene == None or gene_type == None:
