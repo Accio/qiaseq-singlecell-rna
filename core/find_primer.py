@@ -3,7 +3,6 @@ import regex
 def endogenous_seq_match(cigar,primer_len,read_is_reverse,num_flanking_bases=30,cigars_to_ignore=['N','D','H','P'], pattern=regex.compile('([0-9]+)([A-Z])')):
     ''' ## Check if query in gene
     '''
-
     expanded_cigar = []
     for num_bases,cigar_char in regex.findall(pattern,cigar):
         if cigar_char in cigars_to_ignore:
@@ -48,12 +47,6 @@ def find_primer(primer_tree,read_tup):
     res = primer_tree[read_chrom].search(loci_to_search-1,loci_to_search+1) ## allowing a shift in primer start loci by 1 base pair , account for soft clip in the begining
     if res:
         for i in range(res):
-        '''
-        if len(res) > 1:
-            print "Debug: The Primers : {}".format(res)
-            print "Debug: The Read : {}".format(read_tup)
-            raise Exception("error in primer finding, read spans more than 2 primer loci") ## take multiple hits
-        '''
             result = res.pop()
             pattern,primer = result.data
             if regex.match(pattern,read_sequence): ## Check if the primer has approximate match to the read sequence
