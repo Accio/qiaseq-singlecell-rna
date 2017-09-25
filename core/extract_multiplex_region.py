@@ -63,11 +63,12 @@ def iterate_fastq(read2_fastq):
             IN.next()
             IN.next()
 
-def find_motif(motif,read_tup):
+def find_motif(motif,match_group,read_tup):
     '''
     Function to extract the <cell_index><mt> region
 
     :param str motif: regular expression to match read sequence
+    :param int match_group: the regex matched group to return
     :param tuple read_tup : (read_id,read_seq) tuple
     :return: multiplex region matching the motif
     :rtype: str
@@ -76,7 +77,7 @@ def find_motif(motif,read_tup):
     read_id,read_seq = read_tup
     match = regex.match(motif,read_seq)
     if match:
-        return (read_id,match.group(3))
+        return (read_id,match.group(match_group))
     else:        
         return (read_id,None)
 
@@ -122,11 +123,14 @@ def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfi
     multiplex_len = cell_index_len + mt_len
     if instrument.upper() != 'NEXTSEQ':
         motif = r'((%s){e<=%i}([ACGT]{%i,%i})(ACG){s<=1}[ACGT]*)'%(vector,error,multiplex_len-1,multiplex_len+1)
+        match_group = 3
     else: ## For reads from a NextSeq instrument ignore the vector region
         vector_len = len(vector)
         #motif = r'(([ACGT]){%i}([ACGT]{%i,%i})(ACG){s<=1}[ACGT]*)'%(vector_len,multiplex_len-1,multiplex_len+1)
-        motif = r'(([ACGT]{%i,%i})(ACG){s<=1}[ACGT]*)'%(multiplex_len-1,multiplex_len+1)
-    func = partial(find_motif,motif)
+        motif = r'(([ACGT]{%i})[ACGT]*)'%(multiplex_len)
+        match_group = 2
+        
+    func = partial(find_motif,motif,match_group)
     print "\nLooking for the motif : %s in the sequencing reads.\n"%motif
     ## Print out results , takes in input a list of tuples which are processed in parallel by func()
     print_result(p.map(func,iterate_fastq(read2_fastq)),outfile,cell_index_len)
