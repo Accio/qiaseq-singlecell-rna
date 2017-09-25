@@ -20,6 +20,8 @@ def create_gene_anno(annotation_db_file,annotation_gtf):
     ## Parse the gencode annotation file and insert to db
     with open_by_magic(annotation_gtf) as IN:
         for line in IN:
+            if line[0] == "#": ## Skip header
+                continue
             contents = line.strip('\n').split('\t')
             if contents[2] == 'gene':
                 chrom = contents[0]
@@ -41,6 +43,8 @@ def create_gene_hash(annotation_gtf):
     ## Parse the gencode annotation file and insert to db
     with open_by_magic(annotation_gtf) as IN:
         for line in IN:
+            if line[0] == "#":
+                continue
             contents = line.strip('\n').split('\t')
             if contents[2] == 'gene':
                 chrom = contents[0]
@@ -64,6 +68,8 @@ def create_gene_tree(annotation_gtf,merge_coordinates=False):
     genes = defaultdict(list)
     with open_by_magic(annotation_gtf) as IN:
         for line in IN:
+            if line[0]:
+                continue
             contents = line.strip('\n').split('\t')
             if contents[2] == 'gene':
                 chrom = contents[0]
@@ -107,7 +113,7 @@ def create_gene_tree(annotation_gtf,merge_coordinates=False):
                 else: ## Store all intervals without merging
                     genes[gene].append((start,end,chrom,strand,gene,gene_type))
 
-    ## Build a primer tree to store gene info
+    ## Build a gene tree to store gene info
     for gene in genes:
         for info in genes[gene]:
             start,end,chrom,strand,gene,gene_type = info
