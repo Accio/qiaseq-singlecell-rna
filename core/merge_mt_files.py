@@ -153,7 +153,7 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
                         float_to_string(
                             round(float(
                                 cell_metrics[cell]['num_reads_used']) / \
-                                  cell_metrics[cell]['num_umis_used'],2))
+                                  cell_metrics[cell]['num_umis_used'],2)),
                         float_to_string(
                             round(float(
                                 cell_metrics[cell]['num_reads_mapped']) / \
@@ -179,7 +179,7 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
                         float_to_string(
                             round(float(
                                 cell_metrics[cell]['num_reads_used']) / \
-                                  cell_metrics[cell]['num_umis_used'],2))
+                                  cell_metrics[cell]['num_umis_used'],2)),
                         float_to_string(
                             round(float(
                                 cell_metrics[cell]['num_reads_used']) / \
