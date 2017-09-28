@@ -93,22 +93,24 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
         logger.info('Reading {} reads in memory to find genes'.format(max_reads_in_mem))
         find_gene_results = p.map(func,reads)
         for info in find_gene_results:
-            gene_info,umi,count = info
+            gene_info,umi,count,nh = info
             if count == 0:
                 if gene_info == 'Unknown_Chrom':
                     miss_chr+=1
                 elif gene_info == 'Unmapped':
                     unmapped+=1
-                elif gene_info == 'Multimapped':
-                    multimapped+=1
                 elif gene_info == 'Unknown':
                     not_annotated+=1
                 else:
                     ercc+=1
+                    if nh>1:
+                        multimapped+=1
                     info = ('N/A','N/A','N/A','N/A',gene_info,'N/A')
                     ercc_info[gene_info] = info
                     umi_counter[info][umi]+=1
             else:
+                if nh>1:
+                    multimapped+=1
                 umi_counter[gene_info][umi]+=1
                 found+=1
     p.close()
@@ -143,9 +145,11 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
     ## Write metrics
     metric_dict = OrderedDict([
         ('num_reads_mapped',found+miss_chr+not_annotated+multimapped),
+        ('num_reads_mapped_ercc',ercc)
         ('num_reads_not_annotated',not_annotated),
         ('num_reads_unknown_chrom', miss_chr),
         ('num_reads_multimapped',multimapped),
+        ('num_reads_uniquely_mapped',num_reads_mapped - multimapped)
         ('num_reads_used',found),
         ('num_reads_used_ercc',ercc),
         ('num_umis_used',total_UMIs)
@@ -172,10 +176,12 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
     umi_counter = defaultdict(lambda:defaultdict(int))
     umi_counter_gene = defaultdict(lambda:defaultdict(int))
     patterns = defaultdict(lambda:defaultdict(list))
-    primer_miss=0
-    primer_offtarget=0
-    primer_mismatch=0
-    unmapped=0
+    ercc = 0
+    multimapped = 0
+    primer_miss = 0
+    primer_offtarget =0
+    primer_mismatch = 0
+    unmapped = 0
     endo_seq_miss=0
     reads_used = 0    
     total_UMIs = 0
@@ -201,7 +207,9 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
         #print "Processing chunk : %i"%i
         find_primer_results = p.map(func,chunks)
         for info in find_primer_results:
-            primer,umi,count = info
+            primer,umi,count,nh = info
+            if nh>=1:
+                multimapped+=1
             if count == 0:
                 if primer == 'Unknown_Chrom':
                     primer_offtarget+=1
@@ -212,12 +220,17 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
                 elif primer == 'Unknown_Loci':
                     primer_miss+=1
                 else:
+                    gene = primer_info[primer]
+                    if gene.startswith('ERCC-'):
+                        ercc+=1
                     endo_seq_miss+=1
             else:
                 reads_used+=1
                 umi_counter[primer][umi]+=1
                 gene = primer_info[primer][-1]
                 umi_counter_gene[gene][umi]+=1
+                if gene.startswith('ERCC-'):
+                    ercc+=1
         i+=1
     p.close()
     p.join()
@@ -233,6 +246,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
             umi_count = len(umi_counter_gene[gene])
             total_UMIs+=1
             if gene.startswith('ERCC-'):
+                ercc+=1
                 OUT.write('N/A\tN/A\tN/A\tN/A\t'+gene+'\tN/A\t'+str(umi_count)+'\n')
             else:
                 if len(gene_hash[gene]) != 6: ## Temp fix for dealing with edge cases where gene is not present in annotation file
@@ -245,9 +259,18 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
     primers_found = len(umi_counter)
     genes_found = len(umi_counter_gene)
     ## Write metrics
+    num_reads_mapped = num_reads_used + num_reads_endogenous_seq_not_matched + \
+                       num_reads_primer_mismatch + num_reads_primer_off_loci + \
+                       num_reads_primer_offtarget
+    num_reads_mapped_ercc = ercc
+    num_reads_used_ercc = num_reads_used - num_reads_used_ercc
+    
     metric_dict = OrderedDict([
         ('num_primers_found',primers_found),
         ('num_genes_found',genes_found),
+        ('num_reads_mapped',num_reads_mapped)
+        ('num_reads_mapped_ercc',ercc)
+        ('num_reads_multimapped',multimapped)
         ('num_reads_primer_offtarget',primer_offtarget),
         ('num_reads_primer_mismatch',primer_mismatch),
         ('num_reads_primer_off_loci',primer_miss),
