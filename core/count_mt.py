@@ -183,7 +183,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
     primer_mismatch = 0
     unmapped = 0
     endo_seq_miss=0
-    reads_used = 0    
+    num_reads_used = 0    
     total_UMIs = 0
     with open(primer_bed) as IN:
         for line in IN:
@@ -220,12 +220,12 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
                 elif primer == 'Unknown_Loci':
                     primer_miss+=1
                 else:
-                    gene = primer_info[primer]
+                    gene = primer_info[primer][-1]
                     if gene.startswith('ERCC-'):
                         ercc+=1
                     endo_seq_miss+=1
             else:
-                reads_used+=1
+                num_reads_used+=1
                 umi_counter[primer][umi]+=1
                 gene = primer_info[primer][-1]
                 umi_counter_gene[gene][umi]+=1
@@ -276,7 +276,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
         ('num_reads_primer_off_loci',primer_miss),
         ('num_reads_unmapped',unmapped),
         ('num_reads_endogenous_seq_not_matched',endo_seq_miss),
-        ('num_reads_used',reads_used),
+        ('num_reads_used',num_reads_used),
         ('num_umis_used',total_UMIs)
     ])
     write_metrics(metricfile,metric_dict)
