@@ -1,5 +1,6 @@
 import os
 import glob
+import gzip
 import sys
 import luigi
 import sqlite3
@@ -12,12 +13,25 @@ from demultiplex_cells import create_cell_fastqs
 from align_transcriptome import star_alignment,star_load_index,star_remove_index,annotate_bam_umi
 from count_mt import count_umis,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files
-from combine_sample_results import combine_count_files,combine_cell_metrics
+from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics
 from create_annotation_tables import create_gene_tree,create_gene_hash
 
 ## Some globals to cache across tasks
 GENE_TREE = None ## IntervalTree datastructure for use in WTS
 GENE_HASH = None ## Annotations for genes , for use in Targeted case
+def is_gzip_empty(gzipfile):
+    ''' Helper function to check if a gzip file is empty
+    :param str gzipfile: the .gz file
+    :returns Whether the file is empty or not
+    :rtype bool
+    '''
+    with gzip.open(gzipfile,'r') as IN:
+        i=0
+        for line in IN:
+            if i == 5:
+                break
+            i+=1
+    return i == 0
 
 class config(luigi.Config):
     ''' Initialize values from configuration file
@@ -41,7 +55,6 @@ class ExtractMultiplexRegion(luigi.Task):
     ''' Task for extracting the <cell_index><mt> region
     from R2 reads
     '''
-
     ## The parameters for this task
     R1_fastq = luigi.Parameter()
     R2_fastq = luigi.Parameter()
@@ -243,15 +256,13 @@ class Alignment(luigi.Task):
     def run(self):
         ''' Work is to run STAR alignment
         '''
-        if os.path.getsize(self.cell_fastq) > 0: ## Make sure the file is not empty
+        if not is_gzip_empty(self.cell_fastq): ## Make sure the file is not empty
             ## Do the alignment
             star_alignment(config().star,config().genome_dir,
                            os.path.join(self.cell_dir,''),config().star_params,
                            self.cell_fastq)
-            ## Check if the bam file has any records ?
             ## Add bam tags
             annotate_bam_umi(self.multiplex_file,self.bam,self.tagged_bam)
-
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
@@ -316,7 +327,7 @@ class CountMT(luigi.Task):
     def run(self):
         ''' Work to be done is counting of UMIs
         '''
-        if os.path.getsize(self.cell_fastq) > 0:
+        if not is_gzip_empty(self.cell_fastq): ## Make sure the file is not empty
             if config().seqtype.upper() == 'WTS':
                 count_umis_wts(GENE_TREE,self.tagged_bam,self.outfile,
                                self.metricsfile,self.logfile)
@@ -388,7 +399,7 @@ class JoinCountFiles(luigi.Task):
             cell_dir = os.path.join(self.sample_dir,'Cell%i_%s'%(
                 cell_num,cell_index))
             cell_fastq = os.path.join(cell_dir,'cell_'+str(cell_num)+
-                                      '_R1.fastq')
+                                      '_R1.fastq.gz')
             dependencies.append(CountMT(R1_fastq=self.R1_fastq,
                                         R2_fastq=self.R2_fastq,
                                         output_dir=self.output_dir,
@@ -450,7 +461,9 @@ class CombineSamples(luigi.Task):
         '''
         super(CombineSamples,self).__init__(*args,**kwargs)
         self.combined_count_file = os.path.join(self.output_dir,'combined.umi.counts.txt')
+        self.combined_count_file_primers = os.path.join(self.output_dir,'combined.umi.counts.primers.txt')
         self.combined_cell_metrics_file = os.path.join(self.output_dir,'combined.cell.metrics.txt')
+        self.combined_sample_metrics_file = os.path.join(self.output_dir,'combined.sample.metrics.txt')
         ## The verification file for this task
         self.target_dir = os.path.join(self.output_dir,'targets')
         if not os.path.exists(self.target_dir):
@@ -497,13 +510,16 @@ class CombineSamples(luigi.Task):
         ## Also, aggregate on primer level for targeted
         if config().seqtype.upper() != 'WTS':
             files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*/umi_count.primers.txt"))
-            combine_count_files(files_to_merge,self.combined_count_file,False)
+            combine_count_files(files_to_merge,self.combined_count_file_primers,False)
         ## Aggregate metrics for cells
         files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_cell_stats.txt"))
         combine_cell_metrics(files_to_merge,self.combined_cell_metrics_file)
+        ## Aggregate metrics across different samples
+        files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_read_stats.txt"))
+        combine_sample_metrics(files_to_merge,self.combined_sample_metrics_file)
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
-        
+
     def output(self):
         ''' Output from this task
         '''
