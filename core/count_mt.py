@@ -230,7 +230,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
                 gene = primer_info[primer][-1]
                 umi_counter_gene[gene][umi]+=1
                 if gene.startswith('ERCC-'):
-                    ercc+=1
+                    ercc_used+=1
         i+=1
     p.close()
     p.join()
@@ -246,7 +246,6 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
             umi_count = len(umi_counter_gene[gene])
             total_UMIs+=1
             if gene.startswith('ERCC-'):
-                ercc+=1
                 OUT.write('N/A\tN/A\tN/A\tN/A\t'+gene+'\tN/A\t'+str(umi_count)+'\n')
             else:
                 if len(gene_hash[gene]) != 6: ## Temp fix for dealing with edge cases where gene is not present in annotation file
@@ -259,17 +258,17 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
     primers_found = len(umi_counter)
     genes_found = len(umi_counter_gene)
     ## Write metrics
-    num_reads_mapped = num_reads_used + num_reads_endogenous_seq_not_matched + \
-                       num_reads_primer_mismatch + num_reads_primer_off_loci + \
-                       num_reads_primer_offtarget
-    num_reads_mapped_ercc = ercc
-    num_reads_used_ercc = num_reads_used - num_reads_used_ercc
+    num_reads_mapped = num_reads_used + endo_seq_miss + \
+                       primer_mismatch + primer_miss + \
+                       primer_offtarget
+    num_reads_mapped_ercc = ercc + ercc_used
+    num_reads_used_ercc = ercc_used
     
     metric_dict = OrderedDict([
         ('num_primers_found',primers_found),
         ('num_genes_found',genes_found),
         ('num_reads_mapped',num_reads_mapped)
-        ('num_reads_mapped_ercc',ercc)
+        ('num_reads_mapped_ercc',num_reads_mapped_ercc)
         ('num_reads_multimapped',multimapped)
         ('num_reads_primer_offtarget',primer_offtarget),
         ('num_reads_primer_mismatch',primer_mismatch),
