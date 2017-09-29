@@ -29,7 +29,6 @@ def merge_count_files(basedir,out_file,sample_name,wts,ncells,files_to_merge):
         cell = os.path.dirname(f).split('/')[-1].split('_')[0].strip('Cell')
         with open(f,'r') as IN:
             for line in IN:
-                print f,line
                 k1,k2,k3,k4,k5,k6,mt = line.rstrip('\n').split('\t')
                 key = (k1,k2,k3,k4,k5,k6)
                 MT[key][cell] = mt
@@ -94,7 +93,7 @@ def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sam
                 metric_dict_per_cell[cell][metric] = int(val)
 
     ## Write metrics for the sample
-    write_metrics_sample(metric_dict,outfile)
+    write_metrics_sample(metric_dict,metric_file)
     ## Write metrics for each cell to a file
     write_metrics_cells(metric_dict_per_cell,ncells,sample_name,metric_file_cell,wts)
     
