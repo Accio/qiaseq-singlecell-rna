@@ -245,8 +245,8 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
                     continue
                 read_info = new_read_id+'\n'+trimmed_seq+'\n'+p+'\n'+qual
                 write_fastq(read_info,FASTQS[cell_index])
-                cell_metrics[cell_index]['after_qc_reads']+=1
                 cell_metrics[cell_index]['num_reads']+=1
+                cell_metrics[cell_index]['after_qc_reads']+=1
                 reads_demultiplexed+=1
             else:
                 reads_dropped_cellindex+=1

@@ -209,7 +209,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
         find_primer_results = p.map(func,chunks)
         for info in find_primer_results:
             primer,umi,count,nh = info
-            if nh>=1:
+            if nh>1:
                 multimapped+=1
             if count == 0:
                 if primer == 'Unknown_Chrom':
