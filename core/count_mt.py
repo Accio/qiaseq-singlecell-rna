@@ -145,14 +145,14 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
     ## Write metrics
     metric_dict = OrderedDict([
         ('num_reads_mapped',found+miss_chr+not_annotated+multimapped),
-        ('num_reads_mapped_ercc',ercc)
+        ('num_reads_mapped_ercc',ercc),
         ('num_reads_not_annotated',not_annotated),
         ('num_reads_unknown_chrom', miss_chr),
         ('num_reads_multimapped',multimapped),
-        ('num_reads_uniquely_mapped',num_reads_mapped - multimapped)
+        ('num_reads_uniquely_mapped',num_reads_mapped - multimapped),
         ('num_reads_used',found),
         ('num_reads_used_ercc',ercc),
-        ('num_umis_used',total_UMIs)
+        ('num_umis_used',total_UMIs),
         ('num_genes_annotated',len(umi_counter))
     ])
     write_metrics(metricfile,metric_dict)
@@ -268,9 +268,9 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
     metric_dict = OrderedDict([
         ('num_primers_found',primers_found),
         ('num_genes_found',genes_found),
-        ('num_reads_mapped',num_reads_mapped)
-        ('num_reads_mapped_ercc',num_reads_mapped_ercc)
-        ('num_reads_multimapped',multimapped)
+        ('num_reads_mapped',num_reads_mapped),
+        ('num_reads_mapped_ercc',num_reads_mapped_ercc),
+        ('num_reads_multimapped',multimapped),
         ('num_reads_primer_offtarget',primer_offtarget),
         ('num_reads_primer_mismatch',primer_mismatch),
         ('num_reads_primer_off_loci',primer_miss),
