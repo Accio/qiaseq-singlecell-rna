@@ -177,7 +177,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
     umi_counter_gene = defaultdict(lambda:defaultdict(int))
     patterns = defaultdict(lambda:defaultdict(list))
     ercc = 0
-    ercc_user=0
+    ercc_used=0
     multimapped = 0
     primer_miss = 0
     primer_offtarget =0
