@@ -135,7 +135,7 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
     else:            
         header = (
             "Cell\tTotal_reads\tTotal_pass_QC_reads\tDetected_genes\tMapped_reads\t"
-            "Multiple_hits_reads\n"
+            "Map_to_ERCC\tMultiple_hits_reads\n"
         )
         header_len = len(header.split('\t'))
     with open(outfile,'w') as OUT:
