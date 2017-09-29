@@ -79,12 +79,12 @@ def combine_sample_metrics(files_to_merge,outfile):
         i=0
         for sample in sample_metrics:
             if i == 0:
-                header = 'Samples\t'+'\t'.join(sample_metrics[metric].keys())
+                header = 'Samples\t'+'\t'.join(sample_metrics[sample].keys())
                 OUT.write(header+'\n')
                 i+=1
             out = sample
             for metric in sample_metrics[sample]:
-                out = out+'\t'+float_to_string(round(sample_metrics[metric][sample],2))
+                out = out+'\t'+float_to_string(round(sample_metrics[sample][metric],2))
             OUT.write(out+'\n')
         
 def combine_cell_metrics(files_to_merge,outfile):
