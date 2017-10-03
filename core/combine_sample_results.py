@@ -1,8 +1,32 @@
 import sys
 import glob
 import os
+import natsort
 from collections import defaultdict,OrderedDict
 from merge_mt_files import float_to_string
+
+class MyOrderedDict(OrderedDict):
+    def __missing__(self,key):
+        val = self[key] = MyOrderedDict()
+        return val
+
+def sort__by_cell(outputfile):
+    ''' Sort the output count files by Sample_Cells
+    '''
+    temp=outputfile+'.sorted'
+    with open(outputfile,'r') as IN,open(temp,'w') as OUT:
+        for line in IN:
+            if contents[0] == 'chromosome': #header
+                contents = line.strip('\n').split('\t')
+                anno_header = '\t'.join(contents[0:6])
+                cells = contents[6:]
+                sorted_cells = '\t'.join(natsort.natsorted(cells))
+                OUT.write(anno_header+'\t'+sorted_cells+'\n')
+                continue
+            anno = '\t'.join(contents[0:6])
+            sorted_vals = [x for _,x in natsort.natsorted(zip(cells,contents[6:]))]
+            OUT.write(anno+'\t'+'\t'.join(sorted_vals)+'\n')
+    os.system('mv {temp} {outputfile}'.format(temp=temp,outputfile=outputfile))
 
 def read_cell_file(cfile,metric_dict):
     ''' Read a cell metrics file and return the parsed metrics as a dict
@@ -22,18 +46,13 @@ def read_cell_file(cfile,metric_dict):
                 metrics = contents
                 i+=1
                 continue
-            if contents[1:] == ['0']*len(contents[1:]):
+            if contents[1:] == ['0']*len(contents[1:]): ## Skip cells with all zeros
                 continue
             cell= contents[0]
             for i,metric in enumerate(metrics[1:]):
-                metric_dict[metric][cell]= contents[i+1]
+                metric_dict[cell][metric]= contents[i+1]
 
     return metric_dict
-
-class MyOrderedDict(OrderedDict):
-    def __missing__(self,key):
-        val = self[key] = MyOrderedDict()
-        return val
 
 def read_sample_metrics(metric_file,metric_dict):
     ''' Read a sample metrics file
@@ -43,7 +62,7 @@ def read_sample_metrics(metric_file,metric_dict):
         assert sample != '', "Error could not identify sample name from file path : {}".format(metric_file)
         for line in IN:
             metric,val = line.strip('\n').split(':')
-            metric_dict[metric][sample] = float(val)
+            metric_dict[sample][metric] = float(val)
     return metric_dict
 
 def combine_sample_metrics(files_to_merge,outfile):
@@ -58,14 +77,14 @@ def combine_sample_metrics(files_to_merge,outfile):
     ## Combine and write resultant output file
     with open(outfile,'w') as OUT:
         i=0
-        for metric in sample_metrics:
+        for sample in sample_metrics:
             if i == 0:
-                header = 'Metrics/Samples\t'+'\t'.join(sample_metrics[metric].keys())
+                header = 'Samples\t'+'\t'.join(sample_metrics[sample].keys())
                 OUT.write(header+'\n')
                 i+=1
-            out = metric
-            for sample in sample_metrics[metric]:
-                out = out+'\t'+float_to_string(round(sample_metrics[metric][sample],2))
+            out = sample
+            for metric in sample_metrics[sample]:
+                out = out+'\t'+float_to_string(round(sample_metrics[sample][metric],2))
             OUT.write(out+'\n')
         
 def combine_cell_metrics(files_to_merge,outfile):
@@ -79,14 +98,14 @@ def combine_cell_metrics(files_to_merge,outfile):
 
     with open(outfile,'w') as OUT:
         i=0
-        for metric in cell_metrics:
+        for cell in cell_metrics:
             if i == 0: ## Write Header
-                header = 'Metrics/Cells\t'+'\t'.join(cell_metrics[metric].keys())
+                header = 'Cells\t'+'\t'.join(cell_metrics[cell].keys())
                 OUT.write(header+'\n')
                 i+=1
-            out = metric
-            for cell in cell_metrics[metric]:
-                out = out+'\t'+cell_metrics[metric][cell]
+            out = cell
+            for metric in cell_metrics[cell]:
+                out = out+'\t'+cell_metrics[cell][metric]
             OUT.write(out+'\n')
 
 def combine_count_files(files_to_merge,outfile,wts):

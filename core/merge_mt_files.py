@@ -29,7 +29,6 @@ def merge_count_files(basedir,out_file,sample_name,wts,ncells,files_to_merge):
         cell = os.path.dirname(f).split('/')[-1].split('_')[0].strip('Cell')
         with open(f,'r') as IN:
             for line in IN:
-                print f,line
                 k1,k2,k3,k4,k5,k6,mt = line.rstrip('\n').split('\t')
                 key = (k1,k2,k3,k4,k5,k6)
                 MT[key][cell] = mt
@@ -92,19 +91,28 @@ def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sam
             for line in IN:
                 metric,val = line.strip('\n').split(':')
                 metric_dict_per_cell[cell][metric] = int(val)
+
+    ## Write metrics for the sample
+    write_metrics_sample(metric_dict,metric_file)
+    ## Write metrics for each cell to a file
+    write_metrics_cells(metric_dict_per_cell,ncells,sample_name,metric_file_cell,wts)
+    
+def write_metrics_sample(sample_metrics,outfile):
+    ''' Write metrics on sample level
+    :param dict sample_metrics: <metric> -> <val>
+    :param str outfile: the outputfile to write the metrics
+    '''
     ## Write Overall Sample level aggregated metrics
-    with open(metric_file,'w') as M:
-        for metric,val in metric_dict.items():
+    with open(outfile,'w') as M:
+        for metric,val in sample_metrics.items():
             out = metric+': {}\n'.format(float_to_string(round(val,2)))
             M.write(out)
         ## Calc percentage of reads for which genes were annotated
-        temp=(float(metric_dict['num_reads_used'])/metric_dict['num_reads_demultiplexed_for_alignment'])*100
+        temp=(float(sample_metrics['num_reads_used'])/sample_metrics['num_reads_demultiplexed_for_alignment'])*100
         M.write('perc_reads_used: {}\n'.format(float_to_string(round(temp,2))))
         ## Calc reads per UMI
-        temp=(float(metric_dict['num_reads_used'])/metric_dict['num_umis_used'])
+        temp=(float(sample_metrics['num_reads_used'])/sample_metrics['num_umis_used'])
         M.write('reads_per_umi: {}\n'.format(float_to_string(round(temp,2))))
-    ## Write metrics for each cell to a file
-    write_metrics_cells(metric_dict_per_cell,ncells,sample_name,metric_file_cell,wts)
 
 def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
     ''' Write metrics for each cell
@@ -120,23 +128,21 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
     if wts:
         header = (
             "Cell\tTotal_reads\tTotal_pass_QC_reads\tDetected_genes\t"
-            "Mapped_reads\tUniquely_Mapped_reads\tReads_used\tReads_used_ERCC\t"
-            "UMIs_used\tMapped_reads_ratio\tUsable_reads_ratio\n"
+            "Mapped_reads\tMap_to_ERCC\tUnique_map_reads\tOn_target_reads\t"
+            "Mapped_ratio\tUnique_map_ratio\tOn_target_ratio\n"
         )
         header_len = len(header.split('\t'))
     else:            
         header = (
-            "Cell\tTotal_reads\tTotal_pass_QC_reads\tDetected_primers\t"
-            "Detected_genes\tReads_offtarget\tReads_Mismatch\tReads_offloci\t"
-            "Reads_unmapped\tReads_endogenous_seq_not_matched\tReads_used\t"
-            "Reads_used_ERCC\tUMIs_used\tUsable_reads_ratio\n"
+            "Cell\tTotal_reads\tTotal_pass_QC_reads\tDetected_genes\tMapped_reads\t"
+            "Map_to_ERCC\tMultiple_hits_reads\n"
         )
         header_len = len(header.split('\t'))
     with open(outfile,'w') as OUT:
         OUT.write(header)
         for cell in cells:
             cell = str(cell)
-            key = 'Cell'+cell+'_'+sample_name
+            key = 'Cell'+sample_name+'_'+cell
             if cell not in cell_metrics: ## Cell had no reads in demultiplexing
                 out = key+'\t'+'\t'.join(['0']*(header_len-1))+'\n'
                 OUT.write(out)
@@ -146,41 +152,30 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
                         str(cell_metrics[cell]['after_qc_reads']),
                         str(cell_metrics[cell]['num_genes_annotated']),
                         str(cell_metrics[cell]['num_reads_mapped']),
-                        str(cell_metrics[cell]['num_reads_mapped'] - \
-                            cell_metrics[cell]['num_reads_multimapped']),
+                        str(cell_metrics[cell]['num_reads_mapped_ercc']),
+                        str(cell_metrics[cell]['num_reads_uniquely_mapped']),
                         str(cell_metrics[cell]['num_reads_used']),
-                        str(cell_metrics[cell]['num_reads_used_ercc']),
-                        str(cell_metrics[cell]['num_umis_used']),
                         float_to_string(
                             round(float(
                                 cell_metrics[cell]['num_reads_mapped']) / \
                                   cell_metrics[cell]['after_qc_reads'],2)),
                         float_to_string(
                             round(float(
-                                cell_metrics[cell]['num_reads_used']) / \
-                                  cell_metrics[cell]['after_qc_reads'],2))
-                    ]
-                else:
-                    out = [ key, str(cell_metrics[cell]['num_reads']),
-                        str(cell_metrics[cell]['after_qc_reads']),
-                        str(cell_metrics[cell]['num_primers_found']),
-                        str(cell_metrics[cell]['num_genes_found']),
-                        str(cell_metrics[cell]['num_reads_primer_offtarget']),
-                        str(cell_metrics[cell]['num_reads_primer_mismatch']),
-                        str(cell_metrics[cell]['num_reads_primer_off_loci']),
-                        str(cell_metrics[cell]['num_reads_unmapped']),
-                        str(cell_metrics[cell]['num_reads_endogenous_seq_not_matched']),
-                        str(cell_metrics[cell]['num_reads_used']),
-                        str(cell_metrics[cell]['num_reads_used_ercc']),
-                        str(cell_metrics[cell]['num_umis_used']),
+                                cell_metrics[cell]['num_reads_uniquely_mapped']) / \
+                                  cell_metrics[cell]['after_qc_reads'],2)),
                         float_to_string(
                             round(float(
                                 cell_metrics[cell]['num_reads_used']) / \
                                   cell_metrics[cell]['after_qc_reads'],2))
+                        ]
+                else:
+                    out = [ key, str(cell_metrics[cell]['num_reads']),
+                        str(cell_metrics[cell]['after_qc_reads']),
+                        str(cell_metrics[cell]['num_genes_found']),
+                        str(cell_metrics[cell]['num_reads_mapped']),
+                        str(cell_metrics[cell]['num_reads_mapped_ercc']),
+                        str(cell_metrics[cell]['num_reads_multimapped']),
                     ]
                 assert header_len == len(out), "Error in Column Lengths!!"
                 OUT.write('\t'.join(out))
-                OUT.write('\n')
-                
-if __name__ == '__main__':
-    merge_count_files(sys.argv[1],sys.argv[2])
+                OUT.write('\n')               

@@ -35,9 +35,6 @@ def find_gene(gene_tree,read_tup):
     if read_chrom == "*":
         logger.info("{read_id}: Unmapped".format(read_id=read_id))
         return ('Unmapped',mt,0)
-    if nh != 1: ## Multimapped read
-        logger.info("{read_id}: Multimapped".format(read_id=read_id))
-        return ('Multimapped',mt,0)
     if 'ERCC' in read_chrom:
         logger.info("{read_id}: Mapped to {ercc}".format(read_id=read_id,ercc=read_chrom))
         return (read_chrom,mt,0)

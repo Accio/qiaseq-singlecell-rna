@@ -32,12 +32,11 @@ def find_primer(primer_tree,read_tup):
     :returns: a tuple containing the primer and mt info and whether it was a match
     :rtype: tuple
     '''
-
     read_name,read_sequence,read_is_reverse,read_len,read_chrom,read_pos,read_cigar,mt,nh = read_tup
     if read_chrom == '*':
-        return ('Unmapped',mt,0)
+        return ('Unmapped',mt,0,0)
     if read_chrom not in primer_tree:
-        return ('Unknown_Chrom',mt,0)
+        return ('Unknown_Chrom',mt,0,nh)
 
     if read_is_reverse: ## The primer is mapped to the last n bases of the read , as the reads in the bam are always on the +ve strand , hence we need to see if the end of the read still falls within the primer stop site from the design file.
         loci_to_search = read_pos + (read_len-2)
@@ -52,10 +51,10 @@ def find_primer(primer_tree,read_tup):
             if regex.match(pattern,read_sequence): ## Check if the primer has approximate match to the read sequence
                 ## Check for endogenous sequence
                 if endogenous_seq_match(read_cigar,len(primer),read_is_reverse):
-                    return (primer , mt, 1)
+                    return (primer , mt, 1,nh)
                 else:
-                    return (primer, mt, 0)
+                    return (primer, mt, 0,nh)
             
-        return ('Unknown_Regex',mt,0)
+        return ('Unknown_Regex',mt,0,nh)
     else:
-        return('Unknown_Loci',mt,0)
+        return('Unknown_Loci',mt,0,nh)
