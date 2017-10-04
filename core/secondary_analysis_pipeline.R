@@ -105,7 +105,7 @@ if(file.exists(qc.metrics)){
 }
 
 # process umi counts; sum up primer level counts to get gene level counts
-counts.orig %>% select(-c(chromosome, start, stop)) %>%
+counts.orig %>% select(-c(chromosome, start, stop,strand,gene_type)) %>%
             group_by(gene) %>%
             summarise_all(sum) -> dat
 n.cell <- ncol(dat) - 1
