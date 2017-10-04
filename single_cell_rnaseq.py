@@ -569,7 +569,7 @@ class ClusteringAnalysis(luigi.Task):
             """ Rscript {script_path} {rundir} {count_file} {ercc_file}"""
             """ {qc_file} {runid} {niter} {ncpu} {k} {perplexity}"""
             """ {hvgthres} 2>&1""".format(
-                script_path=self.script_path,rundir-self.output_dir,
+                script_path=self.script_path,rundir=self.output_dir,
                 count_file=self.combined_count_file,ercc_file=self.ercc_file,
                 qc_file=self.combined_cell_metrics,runid=self.runid,
                 niter=self.niter,ncpu=self.ncpu,k=self.k,
