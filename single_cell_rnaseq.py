@@ -527,3 +527,70 @@ class CombineSamples(luigi.Task):
        
         
         
+class ClusteringAnalysis(luigi.Task):
+    ''' Task for carrying out secondary statistical analysis
+    '''
+    # Parameters
+    output_dir = luigi.Parameter()
+    samples_cfg = luigi.Parameter()
+    cell_index_file = luigi.Parameter()
+    vector_sequence = luigi.Parameter()
+    isolator = luigi.Parameter()
+    mt_len = luigi.IntParameter()
+    num_cores = luigi.IntParameter()
+    num_errors = luigi.IntParameter()
+
+    def __init__(self,*args,**kwargs):
+        ''' Class constructor
+        '''
+        super(ClusteringAnalysis,self).__init__(*args,**kwargs)
+        ## Hard coded params specific to the R code
+        self.ercc_file = '/home/qiauser/pipeline_data/expected_copy_for_ERCC.csv'
+        self.niter = 500
+        self.ncpu = 20
+        self.k = 0
+        self.perplexity = 10
+        self.hvgthres = 0.40
+        ## Generic Params for input files to the R code
+        self.combined_count_file = os.path.join(self.output_dir,'combined.umi.counts.txt')
+        self.combined_cell_metrics_file = os.path.join(self.output_dir,'combined.cell.metrics.txt')
+        self.logfile = os.path.join(self.output_dir,'logs/')
+        self.runid = os.path.basename(self.output_dir)
+        self.script_path =  os.path.join(os.path.realpath(__file__),'core/secondary_analysis_pipeline.R')
+        ## Pipeline specific params
+        self.target_dir = os.path.join(self.output_dir,'targets')
+        if not os.path.exists(self.target_dir):
+            os.makedirs(self.target_dir)
+        self.verification_file = os.path.join(self.target_dir,
+                                              self.__class__.__name__+
+                                              '.verification.txt')        
+
+        self.cmd = (
+            """ Rscript {script_path} {rundir} {count_file} {ercc_file}"""
+            """ {qc_file} {runid} {niter} {ncpu} {k} {perplexity}"""
+            """ {hvgthres} 2>&1""".format(
+                script_path=self.script_path,rundir-self.output_dir,
+                count_file=self.combined_count_file,ercc_file=self.ercc_file,
+                qc_file=self.combined_cell_metrics,runid=self.runid,
+                niter=self.niter,ncpu=self.ncpu,k=self.k,
+                perplexity=self.perplexity,hvgthres=self.hgvthres
+            ))
+
+        def requires(self):
+            ''' Task dependends on successful completion of merging of all the 
+            individual count files
+            '''
+            return self.clone(CombineSamples)
+
+        def run(self):
+            ''' Work to be done here is to run the R code
+            '''
+            self.run_cmd(self.cmd)
+            with open(self.verification_file,'w') as IN:
+                IN.write('done\n')
+
+        def output(self):
+            ''' The output from this task to check is
+            the verification file
+            '''
+            return luigi.LocalTarget(self.verification_file)
