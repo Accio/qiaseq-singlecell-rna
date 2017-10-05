@@ -10,7 +10,7 @@ sys.path.append(os.path.join(os.path.dirname(
     os.path.realpath(__file__)),'core'))
 from extract_multiplex_region import extract_region
 from demultiplex_cells import create_cell_fastqs
-from align_transcriptome import star_alignment,star_load_index,star_remove_index,annotate_bam_umi
+from align_transcriptome import star_alignment,star_load_index,star_remove_index,annotate_bam_umi,run_cmd
 from count_mt import count_umis,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files
 from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics
@@ -556,41 +556,41 @@ class ClusteringAnalysis(luigi.Task):
         self.combined_cell_metrics_file = os.path.join(self.output_dir,'combined.cell.metrics.txt')
         self.logfile = os.path.join(self.output_dir,'logs/')
         self.runid = os.path.basename(self.output_dir)
-        self.script_path =  os.path.join(os.path.realpath(__file__),'core/secondary_analysis_pipeline.R')
+        self.script_path =  os.path.join(os.path.dirname(
+            os.path.realpath(__file__)),'core/secondary_analysis_pipeline.R')
         ## Pipeline specific params
         self.target_dir = os.path.join(self.output_dir,'targets')
         if not os.path.exists(self.target_dir):
             os.makedirs(self.target_dir)
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
-                                              '.verification.txt')        
-
+                                              '.verification.txt')
         self.cmd = (
             """ Rscript {script_path} {rundir} {count_file} {ercc_file}"""
             """ {qc_file} {runid} {niter} {ncpu} {k} {perplexity}"""
             """ {hvgthres} 2>&1""".format(
                 script_path=self.script_path,rundir=self.output_dir,
                 count_file=self.combined_count_file,ercc_file=self.ercc_file,
-                qc_file=self.combined_cell_metrics,runid=self.runid,
+                qc_file=self.combined_cell_metrics_file,runid=self.runid,
                 niter=self.niter,ncpu=self.ncpu,k=self.k,
-                perplexity=self.perplexity,hvgthres=self.hgvthres
+                perplexity=self.perplexity,hvgthres=self.hvgthres
             ))
 
-        def requires(self):
-            ''' Task dependends on successful completion of merging of all the 
-            individual count files
-            '''
-            return self.clone(CombineSamples)
+    def requires(self):
+        ''' Task dependends on successful completion of merging of all the 
+        individual count files
+        '''
+        return self.clone(CombineSamples)
 
-        def run(self):
-            ''' Work to be done here is to run the R code
-            '''
-            self.run_cmd(self.cmd)
-            with open(self.verification_file,'w') as IN:
-                IN.write('done\n')
+    def run(self):
+        ''' Work to be done here is to run the R code
+        '''
+        run_cmd(self.cmd)
+        with open(self.verification_file,'w') as IN:
+            IN.write('done\n')
 
-        def output(self):
-            ''' The output from this task to check is
-            the verification file
-            '''
-            return luigi.LocalTarget(self.verification_file)
+    def output(self):
+        ''' The output from this task to check is
+        the verification file
+        '''
+        return luigi.LocalTarget(self.verification_file)
