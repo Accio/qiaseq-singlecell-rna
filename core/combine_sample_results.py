@@ -49,6 +49,7 @@ def read_cell_file(cfile,metric_dict):
             if contents[1:] == ['0']*len(contents[1:]): ## Skip cells with all zeros
                 continue
             cell= contents[0]
+            cell = cell.rstrip('Cell')
             for i,metric in enumerate(metrics[1:]):
                 metric_dict[cell][metric]= contents[i+1]
 
@@ -93,6 +94,7 @@ def combine_cell_metrics(files_to_merge,outfile):
     :param str outfile: the outputfile to write the aggregate metrics
     '''    
     cell_metrics = MyOrderedDict()
+    files_to_merge  = natsort.natsorted(files_to_merge)
     for cfile in files_to_merge:
         cell_metrics = read_cell_file(cfile,cell_metrics)
 
@@ -103,7 +105,7 @@ def combine_cell_metrics(files_to_merge,outfile):
                 header = 'Cells\t'+'\t'.join(cell_metrics[cell].keys())
                 OUT.write(header+'\n')
                 i+=1
-            out = cell
+            out = cell            
             for metric in cell_metrics[cell]:
                 out = out+'\t'+cell_metrics[cell][metric]
             OUT.write(out+'\n')
@@ -132,7 +134,7 @@ def combine_count_files(files_to_merge,outfile,wts):
         sample_name = os.path.dirname(f).split('/')[-2]
         check_counts = []
         with open(f,'r') as IN:
-            cell_key = sample_name+'_Cell'+str(cell)
+            cell_key = sample_name+'_'+str(cell)
             for line in IN:
                 k1,k2,k3,k4,k5,k6,umi = line.rstrip('\n').split('\t')
                 key = (k1,k2,k3,k4,k5,k6)
@@ -140,7 +142,7 @@ def combine_count_files(files_to_merge,outfile,wts):
                 UMI[key][cell_key] = umi
                 check_counts.append(int(umi))
             ## Add check here to see if cells are part of user's listing
-            if not all(e == 0 for e in check_counts): ## Check to make sure the cell doesnt have zero counts
+            #if not all(e == 0 for e in check_counts): ## Check to make sure the cell doesnt have zero counts
                 header_cells.add(cell_key)
     ## Create header
     if wts:
@@ -162,3 +164,5 @@ def combine_count_files(files_to_merge,outfile,wts):
                     out = out + '\t{}'.format(UMI[key][cell])
             OUT.write(out+'\n')      
                 
+    ## Sort the count file
+    sort__by_cell(outfile)
