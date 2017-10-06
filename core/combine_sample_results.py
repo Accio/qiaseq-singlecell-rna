@@ -10,12 +10,13 @@ class MyOrderedDict(OrderedDict):
         val = self[key] = MyOrderedDict()
         return val
 
-def sort__by_cell(outputfile):
+def sort_by_cell(outputfile):
     ''' Sort the output count files by Sample_Cells
     '''
     temp=outputfile+'.sorted'
     with open(outputfile,'r') as IN,open(temp,'w') as OUT:
         for line in IN:
+            contents=line.strip('\n').split('\t')
             if contents[0] == 'chromosome': #header
                 contents = line.strip('\n').split('\t')
                 anno_header = '\t'.join(contents[0:6])
@@ -165,4 +166,4 @@ def combine_count_files(files_to_merge,outfile,wts):
             OUT.write(out+'\n')      
                 
     ## Sort the count file
-    sort__by_cell(outfile)
+    sort_by_cell(outfile)
