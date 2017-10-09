@@ -93,7 +93,7 @@ if(file.exists(ercc.input)){
 }
 
 if(file.exists(umi.counts)){
-  counts.orig <- read.csv(umi.counts, header=T, check.names=F)
+  counts.orig <- read.csv(umi.counts, header=T, sep="\t", check.names=F)
 } else{
   stop(paste0(umi.counts, " not found! Program stopped."))
 }
@@ -105,7 +105,7 @@ if(file.exists(qc.metrics)){
 }
 
 # process umi counts; sum up primer level counts to get gene level counts
-counts.orig %>% select(-c(chromosome, start, stop,strand,gene_type)) %>%
+counts.orig %>% select(-c(chromosome, start, stop, strand, gene_type)) %>%
             group_by(gene) %>%
             summarise_all(sum) -> dat
 n.cell <- ncol(dat) - 1
@@ -117,7 +117,7 @@ writeLines(paste0("Number of valid cell indices: ", as.character(n.cell)))
 # ERCC spike-in input information; drop spike-in's with < 1 expected copy
 ercc.orig %>% select(ERCC_ID, input_1ul) %>%
    rename(SpikeID = ERCC_ID, SpikeInput = input_1ul) %>% 
-   #dplyr::filter(SpikeInput >= 1) %>% 
+   dplyr::filter(SpikeInput >= 1) %>% 
    mutate(SpikeInput = round(SpikeInput)) -> SpikeInfo
 SpikeInput <- SpikeInfo$SpikeInput
 
@@ -137,6 +137,8 @@ totalUMIs <- apply(Counts, 2, sum)
 totalEndoUMIs <- apply(Counts[!Tech, ], 2, sum)
 pctEndoUMIs <- totalEndoUMIs / totalUMIs
 pctEndoUMIs.df <- data.frame(pctEndoUMIs)
+
+
 p.pctEndoUMIs <- ggplot(pctEndoUMIs.df, aes(x=pctEndoUMIs)) + geom_density() + xlab('% of UMIs mapped to endogenous genes')
 ggsave(paste0('output/', run.id, '.pct_endoGene_UMI.png'), dpi=300)
 
@@ -150,7 +152,8 @@ if(n.cell <= 96){
    cell_ID <- rep(colnames(logr), each=nrow(logr))
    data.frame(cnt, cell_ID) %>% mutate(cell_ID = factor(cell_ID)) -> df
    # sort by median RLE
-   df.med <- df %>% group_by(cell_ID) %>% filter(cnt != Inf) %>% summarise(med.cnt = median(cnt, na.rm=T)) %>% arrange(desc(med.cnt)) 
+   df.med <- df %>% group_by(cell_ID) %>% filter(cnt != Inf) %>% summarise(med.cnt = median(cnt, na.rm=T)) %>% arrange(desc(med.cnt))
+   
    df %>% mutate(cell_ID = factor(cell_ID, levels=df.med$cell_ID)) %>% 
       ggplot(aes(x=cell_ID, y=cnt)) + geom_boxplot() + geom_hline(yintercept=0, linetype='dashed') +
       theme(axis.text.x = element_text(angle = 270, hjust = 1)) + ylab('Relative Log Expression (ERCC)') + xlab('Cell ID') -> p.rle
@@ -210,6 +213,9 @@ newTech <- ifelse(grepl('ERCC', rownames(newCounts)), TRUE, FALSE)
 spikeInclude <- rownames(newCounts)[newTech]
 newSpikeInfo <- SpikeInfo[SpikeInfo$SpikeID %in% spikeInclude,]
 newSpikeInput <- newSpikeInfo$SpikeInput
+
+print(newSpikeInfo)
+
 FilterData <- newBASiCS_Data(Counts=newCounts, Tech=newTech, SpikeInfo=newSpikeInfo)
 #save(FilterData, file=paste0('misc/', run.id, '.FilterData.RData'))
 

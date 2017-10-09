@@ -13,7 +13,7 @@ from demultiplex_cells import create_cell_fastqs
 from align_transcriptome import star_alignment,star_load_index,star_remove_index,annotate_bam_umi,run_cmd
 from count_mt import count_umis,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files
-from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics
+from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics,clean_for_clustering
 from create_annotation_tables import create_gene_tree,create_gene_hash
 
 ## Some globals to cache across tasks
@@ -566,8 +566,8 @@ class ClusteringAnalysis(luigi.Task):
                                               self.__class__.__name__+
                                               '.verification.txt')
         self.cmd = (
-            """ Rscript {script_path} {rundir} {count_file} {ercc_file}"""
-            """ {qc_file} {runid} {niter} {ncpu} {k} {perplexity}"""
+            """ Rscript {script_path} {rundir} {count_file}.clean {ercc_file}"""
+            """ {qc_file}.clean {runid} {niter} {ncpu} {k} {perplexity}"""
             """ {hvgthres} 2>&1""".format(
                 script_path=self.script_path,rundir=self.output_dir,
                 count_file=self.combined_count_file,ercc_file=self.ercc_file,
@@ -585,6 +585,8 @@ class ClusteringAnalysis(luigi.Task):
     def run(self):
         ''' Work to be done here is to run the R code
         '''
+        ## Clean the output files first
+        clean_for_clustering(self.combined_cell_metrics_file,self.combined_count_file)
         run_cmd(self.cmd)
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
