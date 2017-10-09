@@ -235,27 +235,30 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
         i+=1
     p.close()
     p.join()
-
     ## Print output results
-    with open(outfile_primer,'w') as OUT:
+    with open(outfile_primer,'w') as OUT1,open(outfile_gene,'w') as OUT2 :
         for primer in primer_info:
             chrom,start,stop,seq,revcomp,strand,gene = primer_info[primer]
-            umi_count = len(umi_counter[primer])
-            OUT.write(chrom+'\t'+start+'\t'+stop+'\t'+strand+'\t'+gene+'\t'+seq+'\t'+str(umi_count)+'\n')
-    with open(outfile_gene,'w') as OUT:
-        for gene in umi_counter_gene:                
-            umi_count = len(umi_counter_gene[gene])
-            total_UMIs+=1
-            if gene.startswith('ERCC-'):
-                OUT.write('N/A\tN/A\tN/A\tN/A\t'+gene+'\tN/A\t'+str(umi_count)+'\n')
+            if primer in umi_counter:
+                umi_count = len(umi_counter[primer])
+            else:
+                umi_count = 0
+            OUT1.write(chrom+'\t'+start+'\t'+stop+'\t'+strand+'\t'+gene+'\t'+seq+'\t'+str(umi_count)+'\n')
+            if gene in umi_counter_gene:
+                umi_count = len(umi_counter_gene[gene])
+            else:
+                umi_count = 0
+            total_UMIs+=umi_count    
+            if gene.startswith('ERCC-'):    
+                OUT2.write('N/A\tN/A\tN/A\tN/A\t'+gene+'\tN/A\t'+str(umi_count)+'\n')
             else:
                 if len(gene_hash[gene]) != 6: ## Temp fix for dealing with edge cases where gene is not present in annotation file
                     temp = ['N/A','N/A','N/A','N/A',gene,'N/A']
                     gene_info = '\t'.join(temp)
                 else:
-                    gene_info = '\t'.join(gene_hash[gene])
-                OUT.write(gene_info+'\t'+str(umi_count)+'\n')
-
+                    gene_info = '\t'.join(gene_hash[gene])                
+                OUT2.write(gene_info+'\t'+str(umi_count)+'\n')
+                
     primers_found = len(umi_counter)
     genes_found = len(umi_counter_gene)
     ## Write metrics
