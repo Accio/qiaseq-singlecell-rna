@@ -10,10 +10,10 @@ sys.path.append(os.path.join(os.path.dirname(
     os.path.realpath(__file__)),'core'))
 from extract_multiplex_region import extract_region
 from demultiplex_cells import create_cell_fastqs
-from align_transcriptome import star_alignment,star_load_index,star_remove_index,annotate_bam_umi
+from align_transcriptome import star_alignment,star_load_index,star_remove_index,annotate_bam_umi,run_cmd
 from count_mt import count_umis,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files
-from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics
+from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics,clean_for_clustering
 from create_annotation_tables import create_gene_tree,create_gene_hash
 
 ## Some globals to cache across tasks
@@ -527,3 +527,72 @@ class CombineSamples(luigi.Task):
        
         
         
+class ClusteringAnalysis(luigi.Task):
+    ''' Task for carrying out secondary statistical analysis
+    '''
+    # Parameters
+    output_dir = luigi.Parameter()
+    samples_cfg = luigi.Parameter()
+    cell_index_file = luigi.Parameter()
+    vector_sequence = luigi.Parameter()
+    isolator = luigi.Parameter()
+    mt_len = luigi.IntParameter()
+    num_cores = luigi.IntParameter()
+    num_errors = luigi.IntParameter()
+
+    def __init__(self,*args,**kwargs):
+        ''' Class constructor
+        '''
+        super(ClusteringAnalysis,self).__init__(*args,**kwargs)
+        ## Hard coded params specific to the R code
+        self.ercc_file = '/home/qiauser/pipeline_data/expected_copy_for_ERCC.csv'
+        self.niter = 500
+        self.ncpu = 20
+        self.k = 0
+        self.perplexity = 10
+        self.hvgthres = 0.40
+        ## Generic Params for input files to the R code
+        self.combined_count_file = os.path.join(self.output_dir,'combined.umi.counts.txt')
+        self.combined_cell_metrics_file = os.path.join(self.output_dir,'combined.cell.metrics.txt')
+        self.logfile = os.path.join(self.output_dir,'logs/')
+        self.runid = os.path.basename(self.output_dir)
+        self.script_path =  os.path.join(os.path.dirname(
+            os.path.realpath(__file__)),'core/secondary_analysis_pipeline.R')
+        ## Pipeline specific params
+        self.target_dir = os.path.join(self.output_dir,'targets')
+        if not os.path.exists(self.target_dir):
+            os.makedirs(self.target_dir)
+        self.verification_file = os.path.join(self.target_dir,
+                                              self.__class__.__name__+
+                                              '.verification.txt')
+        self.cmd = (
+            """ Rscript {script_path} {rundir} {count_file}.clean {ercc_file}"""
+            """ {qc_file}.clean {runid} {niter} {ncpu} {k} {perplexity}"""
+            """ {hvgthres} 2>&1""".format(
+                script_path=self.script_path,rundir=self.output_dir,
+                count_file=self.combined_count_file,ercc_file=self.ercc_file,
+                qc_file=self.combined_cell_metrics_file,runid=self.runid,
+                niter=self.niter,ncpu=self.ncpu,k=self.k,
+                perplexity=self.perplexity,hvgthres=self.hvgthres
+            ))
+
+    def requires(self):
+        ''' Task dependends on successful completion of merging of all the 
+        individual count files
+        '''
+        return self.clone(CombineSamples)
+
+    def run(self):
+        ''' Work to be done here is to run the R code
+        '''
+        ## Clean the output files first
+        clean_for_clustering(self.combined_cell_metrics_file,self.combined_count_file)
+        run_cmd(self.cmd)
+        with open(self.verification_file,'w') as IN:
+            IN.write('done\n')
+
+    def output(self):
+        ''' The output from this task to check is
+        the verification file
+        '''
+        return luigi.LocalTarget(self.verification_file)

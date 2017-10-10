@@ -10,12 +10,57 @@ class MyOrderedDict(OrderedDict):
         val = self[key] = MyOrderedDict()
         return val
 
-def sort__by_cell(outputfile):
+def clean_for_clustering(combined_cell_metrics_file,combined_umi_counts_file):
+    ''' Clean the cells , i.e. remove cells with no ERCC reads
+
+    :param: str combined_cell_metrics: the path to the combined metrics file
+    :param: str combined_cell_metrics: the path to the combined umi counts file
+    ''' 
+    clean_cells = []
+    with open(combined_cell_metrics_file,'r') as IN,open(combined_cell_metrics_file+'.clean','w') as OUT:
+        for line in IN:
+            line = line.strip('\n')
+            if line.startswith('Cell'):
+                print >> OUT,line
+                continue
+            else:                
+                contents = line.split('\t')
+                cell = contents[0]
+                if int(contents[-2]) == 0: ## Remove cells with no reads mapped to ERCC 
+                    continue
+                else:
+                    print >> OUT,line
+                    clean_cells.append(cell)
+                    
+    with open(combined_umi_counts_file,'r') as IN,open(combined_umi_counts_file+'.clean','w') as OUT:
+        for line in IN:
+            line = line.strip('\n')
+            contents = line.split('\t')
+            if line.startswith('chromosome'):
+                header_anno = contents[0:6]
+                header_cells = contents[6:]
+                outheader = '\t'.join(header_anno) + '\t' + '\t'.join(clean_cells)
+                print >> OUT,outheader
+                continue
+            else:
+                umis = contents[6:]
+                umi_dict = dict(zip(header_cells,umis))
+                ## Keep only the cells filtered in the metrics file
+                out = contents[0:6]
+                for cell in clean_cells:                     
+                    out.append(umi_dict[cell])
+                outline = '\t'.join(out)
+                print >> OUT,outline
+           
+def sort_by_cell(outputfile):
     ''' Sort the output count files by Sample_Cells
+
+    :param: str outputfile: path to the output file
     '''
     temp=outputfile+'.sorted'
     with open(outputfile,'r') as IN,open(temp,'w') as OUT:
         for line in IN:
+            contents=line.strip('\n').split('\t')
             if contents[0] == 'chromosome': #header
                 contents = line.strip('\n').split('\t')
                 anno_header = '\t'.join(contents[0:6])
@@ -49,6 +94,7 @@ def read_cell_file(cfile,metric_dict):
             if contents[1:] == ['0']*len(contents[1:]): ## Skip cells with all zeros
                 continue
             cell= contents[0]
+            cell = cell.strip('Cell')
             for i,metric in enumerate(metrics[1:]):
                 metric_dict[cell][metric]= contents[i+1]
 
@@ -93,6 +139,7 @@ def combine_cell_metrics(files_to_merge,outfile):
     :param str outfile: the outputfile to write the aggregate metrics
     '''    
     cell_metrics = MyOrderedDict()
+    files_to_merge  = natsort.natsorted(files_to_merge)
     for cfile in files_to_merge:
         cell_metrics = read_cell_file(cfile,cell_metrics)
 
@@ -103,7 +150,7 @@ def combine_cell_metrics(files_to_merge,outfile):
                 header = 'Cells\t'+'\t'.join(cell_metrics[cell].keys())
                 OUT.write(header+'\n')
                 i+=1
-            out = cell
+            out = cell            
             for metric in cell_metrics[cell]:
                 out = out+'\t'+cell_metrics[cell][metric]
             OUT.write(out+'\n')
@@ -132,7 +179,7 @@ def combine_count_files(files_to_merge,outfile,wts):
         sample_name = os.path.dirname(f).split('/')[-2]
         check_counts = []
         with open(f,'r') as IN:
-            cell_key = sample_name+'_Cell'+str(cell)
+            cell_key = sample_name+'_'+str(cell)
             for line in IN:
                 k1,k2,k3,k4,k5,k6,umi = line.rstrip('\n').split('\t')
                 key = (k1,k2,k3,k4,k5,k6)
@@ -140,7 +187,7 @@ def combine_count_files(files_to_merge,outfile,wts):
                 UMI[key][cell_key] = umi
                 check_counts.append(int(umi))
             ## Add check here to see if cells are part of user's listing
-            if not all(e == 0 for e in check_counts): ## Check to make sure the cell doesnt have zero counts
+            #if not all(e == 0 for e in check_counts): ## Check to make sure the cell doesnt have zero counts
                 header_cells.add(cell_key)
     ## Create header
     if wts:
@@ -162,3 +209,5 @@ def combine_count_files(files_to_merge,outfile,wts):
                     out = out + '\t{}'.format(UMI[key][cell])
             OUT.write(out+'\n')      
                 
+    ## Sort the count file
+    sort_by_cell(outfile)
