@@ -68,7 +68,7 @@ def create_gene_tree(annotation_gtf,merge_coordinates=False):
     genes = defaultdict(list)
     with open_by_magic(annotation_gtf) as IN:
         for line in IN:
-            if line[0]:
+            if line[0]=='#':
                 continue
             contents = line.strip('\n').split('\t')
             if contents[2] == 'gene':
