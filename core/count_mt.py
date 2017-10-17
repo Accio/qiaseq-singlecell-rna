@@ -108,6 +108,7 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
                     info = ('N/A','N/A','N/A','N/A',gene_info,'N/A')
                     ercc_info[gene_info] = info
                     umi_counter[info][umi]+=1
+                    found+=1
             else:
                 if nh>1:
                     multimapped+=1
@@ -149,7 +150,7 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
         ('num_reads_not_annotated',not_annotated),
         ('num_reads_unknown_chrom', miss_chr),
         ('num_reads_multimapped',multimapped),
-        ('num_reads_uniquely_mapped',num_reads_mapped - multimapped),
+        ('num_reads_uniquely_mapped',found+miss_chr+not_annotated),
         ('num_reads_used',found),
         ('num_reads_used_ercc',ercc),
         ('num_umis_used',total_UMIs),
