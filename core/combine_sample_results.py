@@ -94,7 +94,6 @@ def read_cell_file(cfile,metric_dict):
             if contents[1:] == ['0']*len(contents[1:]): ## Skip cells with all zeros
                 continue
             cell= contents[0]
-            cell = cell.strip('Cell')
             for i,metric in enumerate(metrics[1:]):
                 metric_dict[cell][metric]= contents[i+1]
 
