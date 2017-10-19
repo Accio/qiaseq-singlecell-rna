@@ -212,7 +212,6 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
     i = 1
     func = partial(find_primer,primer_tree)
     for chunks in iterate_bam_chunks(tagged_bam,chunks=10000000):
-        print "Processing chunk : %i with %i reads"%(i,chunks)
         find_primer_results = p.map(func,chunks)
         for info in find_primer_results:
             primer,umi,count,nh = info
