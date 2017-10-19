@@ -249,7 +249,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
                 umi_count = len(umi_counter[primer])
             else:
                 umi_count = 0
-            OUT1.write(chrom+'\t'+start+'\t'+stop+'\t'+strand+'\t'+gene+'\t'+seq+'\t'+str(umi_count)+'\n')
+            OUT1.write(chrom+'\t'+str(start)+'\t'+str(stop)+'\t'+strand+'\t'+gene+'\t'+seq+'\t'+str(umi_count)+'\n')
             if gene in umi_counter_gene:
                 umi_count = len(umi_counter_gene[gene])
             else:
