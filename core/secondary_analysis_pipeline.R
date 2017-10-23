@@ -6,7 +6,7 @@
 rm(list=ls())
 
 # load functions
-source("/home/xuc/scRNA-seq/code/functions.R")
+source("/srv/qgen/code/qiaseq-singlecell-rna/core/functions.R")
 
 #list of arguments
 args <- commandArgs(TRUE)
