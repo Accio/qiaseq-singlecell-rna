@@ -26,7 +26,7 @@ def clean_for_clustering(combined_cell_metrics_file,combined_umi_counts_file):
             else:                
                 contents = line.split('\t')
                 cell = contents[0]
-                if int(contents[-2]) == 0: ## Remove cells with no reads mapped to ERCC 
+                if int(contents[5]) == 0: ## Remove cells with no reads mapped to ERCC
                     continue
                 else:
                     print >> OUT,line
