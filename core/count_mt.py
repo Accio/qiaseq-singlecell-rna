@@ -192,6 +192,8 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
             chrom,five_prime,three_prime,seq,strand,gene = line.strip('\n').split('\t')
             sequence = Seq(seq)
             revcomp_seq = sequence.reverse_complement().tostring()
+            if gene.startswith('ERCC-'): ## Update chrom
+                chrom = gene
             if strand == '0':
                 strand = '+'
                 start = int(five_prime)

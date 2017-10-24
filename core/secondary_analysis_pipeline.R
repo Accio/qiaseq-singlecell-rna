@@ -102,6 +102,7 @@ if(file.exists(qc.metrics)){
 } else{
   stop(paste0(qc.metrics, " not found! Program stopped."))
 }
+writeLines(paste0("Finished Loading all datasets!"))
 
 # process umi counts; sum up primer level counts to get gene level counts
 counts.orig %>% select(-c(chromosome, start, stop, strand, gene_type)) %>%
