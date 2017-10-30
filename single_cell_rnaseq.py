@@ -378,6 +378,9 @@ class JoinCountFiles(luigi.Task):
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
         self.count_file = os.path.join(self.sample_dir,
                                        self.sample_name+'.umi.counts.txt')
+        self.count_file_primers = os.path.join(self.sample_dir,
+                                       self.sample_name+'.umi.counts.primers.txt')
+        
         self.temp_metric_file = os.path.join(self.sample_dir,
                                        '%s_read_stats.temp.txt'%self.sample_name)
         self.metric_file = os.path.join(self.sample_dir,
@@ -442,7 +445,7 @@ class JoinCountFiles(luigi.Task):
             ## Merge primer level count files
             wts = False
             files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/umi_count.primers.txt"))
-            merge_count_files(self.sample_dir,self.count_file,self.sample_name,wts,len(self.cell_indices),files_to_merge)            
+            merge_count_files(self.sample_dir,self.count_file_primers,self.sample_name,wts,len(self.cell_indices),files_to_merge)            
         ## Merge metric files
         files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/read_stats.txt"))
         merge_metric_files(self.sample_dir,self.temp_metric_file,self.metric_file,self.metric_file_cell,self.sample_name,wts,len(self.cell_indices),files_to_merge)

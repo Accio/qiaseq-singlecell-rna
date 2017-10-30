@@ -262,7 +262,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
                 gene_info = '\t'.join(temp)
             else:
                 gene_info = '\t'.join(gene_hash[gene])                
-                OUT2.write(gene_info+'\t'+str(umi_count)+'\n')
+            OUT2.write(gene_info+'\t'+str(umi_count)+'\n')
                 
     primers_found = len(umi_counter)
     genes_found = len(umi_counter_gene)
