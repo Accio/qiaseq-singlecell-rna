@@ -158,7 +158,7 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
     write_metrics(metricfile,metric_dict)
     logger.info('Finished UMI counting and writing to disk')
 
-def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metricfile,cores):
+def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metricfile,logfile,cores):
     ''' Search for the design spe primers in the tagged bam
     and count molecular tags for each primer
     To do : Make this function shorter
@@ -170,6 +170,11 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
     :param str outfile_gene: the output file for counts on a gene level
     :param str metricfile: file to write primer finding stats
     '''
+    ## Set up logging
+    logger = logging.getLogger("count_umis")
+    logger.setLevel(logging.DEBUG)
+    LOG = logging.FileHandler(logfile)
+    logger.addHandler(LOG)    
     ## Variable Initialization
     primer_info = defaultdict(list)
     primer_tree = defaultdict(lambda:IntervalTree())

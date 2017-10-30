@@ -1,4 +1,5 @@
 import regex
+import logging
 
 def endogenous_seq_match(cigar,primer_len,read_is_reverse,num_flanking_bases=30,cigars_to_ignore=['N','D','H','P'], pattern=regex.compile('([0-9]+)([A-Z])')):
     ''' Function to check whether the sequence following the primer has enough matching alignment
@@ -40,17 +41,22 @@ def find_primer(primer_tree,read_tup):
     :rtype: tuple
     '''
     read_name,read_sequence,read_is_reverse,read_len,read_chrom,read_pos,read_cigar,mt,nh = read_tup
+    logger = logging.getLogger("count_umis")
+
     if read_chrom == '*':
+        logger.info("{read_id}: Unmapped".format(read_id=read_name))
         return ('Unmapped',mt,0,0)
+    
     if read_chrom not in primer_tree:
+        logger.info("{read_id}: Multimapped".format(read_id=read_name))
         return ('Unknown_Chrom',mt,0,nh)        
 
     if read_is_reverse: ## The primer is mapped to the last n bases of the read , as the reads in the bam are always on the +ve strand , hence we need to see if the end of the read still falls within the primer stop site from the design file.
         loci_to_search = read_pos + (read_len-1)
-        res = primer_tree[read_chrom].search(loci_to_search,loci_to_search-3) ## allowing some offset in primer start loci 
+        res = primer_tree[read_chrom].search(loci_to_search-2,loci_to_search+3) ## allowing some offset in primer start loci 
     else:
         loci_to_search = read_pos
-        res = primer_tree[read_chrom].search(loci_to_search,loci_to_search+3)
+        res = primer_tree[read_chrom].search(loci_to_search-2,loci_to_search+3)
 
     if res:
         for i in range(len(res)):
@@ -61,7 +67,9 @@ def find_primer(primer_tree,read_tup):
                 if endogenous_seq_match(read_cigar,len(primer),read_is_reverse):
                     return (primer , mt, 1,nh)
                 else:
-                    return (primer, mt, 0,nh)            
+                    return (primer, mt, 0,nh)
+        logger.info("{read_id}:{read_seq} Regular Expression Match failed to Primer: {primer}".format(read_id=read_name,read_seq=read_sequence,primer=primer))            
         return ('Unknown_Regex',mt,0,nh)
     else:
+        logger.info("{read_id}:{read_seq} was not found in the Primer Interval Tree".format(read_id=read_name,read_seq=read_sequence))
         return('Unknown_Loci',mt,0,nh)

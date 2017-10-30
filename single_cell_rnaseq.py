@@ -344,7 +344,7 @@ class CountMT(luigi.Task):
             else:
                 count_umis(GENE_HASH,config().primer_file,self.tagged_bam,
                            self.outfile_primer,self.outfile,
-                           self.metricsfile,self.num_cores)
+                           self.metricsfile,self.logfile,self.num_cores)
 
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
