@@ -76,8 +76,9 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
     unmapped = 0
     not_annotated = 0
     multimapped = 0
-    ercc=0
-    total_UMIs=0
+    ercc  = 0
+    ercc_multimapped = 0
+    total_UMIs = 0
     ## To do : Store an ERCC file to output correct coordinates
     ercc_names = ['ERCC-00002','ERCC-00003','ERCC-00004','ERCC-00009','ERCC-00012','ERCC-00013','ERCC-00014','ERCC-00016','ERCC-00017','ERCC-00019','ERCC-00022','ERCC-00024','ERCC-00025','ERCC-00028','ERCC-00031','ERCC-00033','ERCC-00034','ERCC-00035','ERCC-00039','ERCC-00040','ERCC-00041','ERCC-00042','ERCC-00043','ERCC-00044','ERCC-00046','ERCC-00048','ERCC-00051','ERCC-00053','ERCC-00054','ERCC-00057','ERCC-00058','ERCC-00059','ERCC-00060','ERCC-00061','ERCC-00062','ERCC-00067','ERCC-00069','ERCC-00071','ERCC-00073','ERCC-00074','ERCC-00075','ERCC-00076','ERCC-00077','ERCC-00078','ERCC-00079','ERCC-00081','ERCC-00083','ERCC-00084','ERCC-00085','ERCC-00086','ERCC-00092','ERCC-00095','ERCC-00096','ERCC-00097','ERCC-00098','ERCC-00099','ERCC-00104','ERCC-00108','ERCC-00109','ERCC-00111','ERCC-00112','ERCC-00113','ERCC-00116','ERCC-00117','ERCC-00120','ERCC-00123','ERCC-00126','ERCC-00130','ERCC-00131','ERCC-00134','ERCC-00136','ERCC-00137','ERCC-00138','ERCC-00142','ERCC-00143','ERCC-00144','ERCC-00145','ERCC-00147','ERCC-00148','ERCC-00150','ERCC-00154','ERCC-00156','ERCC-00157','ERCC-00158','ERCC-00160','ERCC-00162','ERCC-00163','ERCC-00164','ERCC-00165','ERCC-00168','ERCC-00170','ERCC-00171']
     ercc_info = {}
@@ -103,15 +104,18 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
                 else:
                     ercc+=1
                     if nh>1:
+                        ercc_multimapped+=1
                         multimapped+=1
-                    info = ('N/A','N/A','N/A','N/A',gene_info,'N/A')
-                    ercc_info[gene_info] = info
-                    umi_counter[info][umi]+=1
+                    else:
+                        info = ('N/A','N/A','N/A','N/A',gene_info,'N/A')
+                        ercc_info[gene_info] = info
+                        umi_counter[info][umi]+=1
                     found+=1
             else:
                 if nh>1:
                     multimapped+=1
-                umi_counter[gene_info][umi]+=1
+                else:
+                    umi_counter[gene_info][umi]+=1
                 found+=1
     p.close()
     p.join()
@@ -151,7 +155,7 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
         ('num_reads_multimapped',multimapped),
         ('num_reads_uniquely_mapped',found+miss_chr+not_annotated-multimapped),
         ('num_reads_used',found-multimapped),
-        ('num_reads_used_ercc',ercc-multimapped),
+        ('num_reads_used_ercc',ercc-ercc_multimapped),
         ('num_umis_used',total_UMIs),
         ('num_genes_annotated',len(umi_counter))
     ])
