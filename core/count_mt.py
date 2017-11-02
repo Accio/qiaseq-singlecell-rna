@@ -159,7 +159,7 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
         ('num_umis_used',total_UMIs),
         ('num_genes_annotated',len(umi_counter))
     ])
-    write_metrics(metricfile,metric_dict)
+    write_metrics(metricfile,metric_dict,metric_dict.keys())
     logger.info('Finished UMI counting and writing to disk')
 
 def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metricfile,logfile,cores):
@@ -296,5 +296,5 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
         ('num_reads_used',num_reads_used),
         ('num_umis_used',total_UMIs)
     ])
-    write_metrics(metricfile,metric_dict)
+    write_metrics(metricfile,metric_dict,metric_dict.keys())
 
