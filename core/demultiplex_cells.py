@@ -275,7 +275,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
          ('num_reads_demultiplexed_for_alignment',reads_demultiplexed),
         ]
     )
-    write_metrics(metric_file,metric_dict)
+    write_metrics(metric_file,metric_dict,metric_dict.keys())
 
 if __name__ == '__main__':
     create_cell_fastqs(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5])
