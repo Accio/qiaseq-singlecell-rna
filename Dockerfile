@@ -47,7 +47,7 @@ wget https://github.com/hms-dbmi/scde/archive/1.99.2.tar.gz
 RUN Rscript -e "R CMD INSTALL 1.99.2.tar.gz"
 
 ## bioconductor related packages
-RUN Rscript -e "source("http://bioconductor.org/biocLite.R"); biocLite('MAST'); 
+RUN Rscript -e "source('http://bioconductor.org/biocLite.R'); biocLite('MAST');"
 RUN Rscript -e "install.packages('stringr')"
 RUN Rscript -e "install.packages('ggrepel')"
 RUN Rscript -e "install.packages('cluster')"
