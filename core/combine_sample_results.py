@@ -26,7 +26,7 @@ def clean_for_clustering(combined_cell_metrics_file,combined_umi_counts_file):
             else:                
                 contents = line.split('\t')
                 cell = contents[0]
-                if int(contents[-2]) == 0: ## Remove cells with no reads mapped to ERCC 
+                if int(contents[5]) == 0: ## Remove cells with no reads mapped to ERCC
                     continue
                 else:
                     print >> OUT,line
@@ -94,7 +94,6 @@ def read_cell_file(cfile,metric_dict):
             if contents[1:] == ['0']*len(contents[1:]): ## Skip cells with all zeros
                 continue
             cell= contents[0]
-            cell = cell.strip('Cell')
             for i,metric in enumerate(metrics[1:]):
                 metric_dict[cell][metric]= contents[i+1]
 

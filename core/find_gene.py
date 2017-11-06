@@ -34,13 +34,13 @@ def find_gene(gene_tree,read_tup):
     read_id,read_sequence,read_is_reverse,read_len,read_chrom,read_pos,read_cigar,mt,nh = read_tup
     if read_chrom == "*":
         logger.info("{read_id}: Unmapped".format(read_id=read_id))
-        return ('Unmapped',mt,0)
+        return ('Unmapped',mt,0,nh)
     if 'ERCC' in read_chrom:
         logger.info("{read_id}: Mapped to {ercc}".format(read_id=read_id,ercc=read_chrom))
-        return (read_chrom,mt,0)
+        return (read_chrom,mt,0,nh)
     if read_chrom not in gene_tree:
         logger.info("{read_id}: Chromosome {chrom} was not present in annotation gene interval".format(read_id=read_id,chrom=read_chrom))
-        return ('Unknown_Chrom',mt,0)
+        return ('Unknown_Chrom',mt,0,nh)
 
     ## Search the interval tree
     read_end = return_read_end_pos(read_pos,read_cigar)
@@ -92,19 +92,19 @@ def find_gene(gene_tree,read_tup):
                         prev_o = o
             if prev:
                 logger.info("{read_id}: Picked {gene1}".format(read_id=read_id,gene1=prev[4]))
-                return (prev,mt,1)
+                return (prev,mt,1,nh)
             else:
                 logger.info("{read_id}: No genes matched overlap criteria".format(read_id=read_id))
-                return ('Unknown',mt,0)
+                return ('Unknown',mt,0,nh)
         else:
             result = res.pop()
             logger.info("{read_id}: intersected with {gene} only".format(read_id=read_id,gene=result.data[4]))
             o = float(overlap(read_pos,read_end,result.data[0],result.data[1]))/read_len
             if o < overlap_threshold:
                 logger.info("{read_id}: {gene} failed overlap criteria".format(read_id=read_id,gene=result.data[4]))
-                return ('Unknown',mt,0)
+                return ('Unknown',mt,0,nh)
             else:
-                return (result.data,mt,1)
+                return (result.data,mt,1,nh)
     else: ## Could not find loci in gene tree
         logger.info("{read_id} was not found in the annotation gene interval tree".format(read_id=read_id))
-        return ('Unknown',mt,0)
+        return ('Unknown',mt,0,nh)

@@ -142,8 +142,8 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
         OUT.write(header)
         for cell in cells:
             cell = str(cell)
-            key = 'Cell'+sample_name+'_'+cell
-            if cell not in cell_metrics: ## Cell had no reads in demultiplexing
+            key = sample_name+'_'+cell
+            if cell not in cell_metrics or cell_metrics[cell]['after_qc_reads'] == 0: ## Cell had no reads in demultiplexing
                 out = key+'\t'+'\t'.join(['0']*(header_len-1))+'\n'
                 OUT.write(out)
             else:

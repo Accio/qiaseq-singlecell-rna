@@ -39,8 +39,15 @@ RUN echo "r <- getOption('repos'); r['CRAN'] <- 'http://cran.us.r-project.org'; 
 RUN Rscript -e "install.packages('ggplot2')"
 RUN Rscript -e "install.packages('dplyr')"
 RUN Rscript -e "install.packages('Rtsne')"
+RUN Rscript -e "install.packages('pheatmap')"
+
+## Wierd version specific scde library installation
+install_version("flexmix", version = "2.3-13", repos = "http://cran.us.r-project.org")
+wget https://github.com/hms-dbmi/scde/archive/1.99.2.tar.gz
+RUN Rscript -e "R CMD INSTALL 1.99.2.tar.gz"
+
 ## bioconductor related packages
-RUN Rscript -e "source("http://bioconductor.org/biocLite.R"); biocLite('MAST');  biocClite('scde'); "
+RUN Rscript -e "source('http://bioconductor.org/biocLite.R'); biocLite('MAST');"
 RUN Rscript -e "install.packages('stringr')"
 RUN Rscript -e "install.packages('ggrepel')"
 RUN Rscript -e "install.packages('cluster')"

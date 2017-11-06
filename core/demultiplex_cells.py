@@ -155,11 +155,15 @@ def read_cell_index_file(cell_index_file):
             i+=1
     return d
 
-def write_metrics(metric_file,metrics):
+def write_metrics(metric_file,metric_dict,metrics):
     '''
     '''
     with open(metric_file,'w') as OUT:
-        for key,val in metrics.items():
+        for key in metrics:
+            if key in metric_dict:
+                val = metric_dict[key]
+            else:
+                val = 0        
             OUT.write('{metric}: {value}\n'.format(metric=key,value=val))
 
 
@@ -257,8 +261,9 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
 
     ## Write out the metrics
     ## 1. Per cell level
+    metrics_to_write = ['num_reads','after_qc_reads']
     for cell,mfile in METRICS.items():
-        write_metrics(mfile,cell_metrics[cell])
+        write_metrics(mfile,cell_metrics[cell],metrics_to_write)
     ## 2. Aggregated across all the cells
     metric_dict = collections.OrderedDict(
         [('num_reads',num_reads),
@@ -270,7 +275,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
          ('num_reads_demultiplexed_for_alignment',reads_demultiplexed),
         ]
     )
-    write_metrics(metric_file,metric_dict)
+    write_metrics(metric_file,metric_dict,metric_dict.keys())
 
 if __name__ == '__main__':
     create_cell_fastqs(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5])

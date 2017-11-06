@@ -5,6 +5,7 @@ import sys
 import luigi
 import sqlite3
 import ConfigParser
+import datetime
 ## Modules from this project
 sys.path.append(os.path.join(os.path.dirname(
     os.path.realpath(__file__)),'core'))
@@ -102,6 +103,7 @@ class ExtractMultiplexRegion(luigi.Task):
         i.e. the <cell_index><MT> sequence
         The resultant file is a tsv <read_id> <cell_index> <MT>
         '''
+        print "Started Task: {x}-{y} {z}".format(x='ExtractMultiplexRegion',y=self.sample_name,z=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         extract_region(self.vector_sequence,
                        self.num_errors,self.cell_index_len,
                        self.mt_len,self.isolator,self.R2_fastq,
@@ -110,7 +112,8 @@ class ExtractMultiplexRegion(luigi.Task):
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
-
+        print "Finished Task: {x}-{y} {z}".format(x='DeMultiplexer',y=self.sample_name,z=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+ 
     def output(self):
         ''' Check for the existence of the verification file
         '''
@@ -156,6 +159,7 @@ class DeMultiplexer(luigi.Task):
     def run(self):
         ''' Work entails demultiplexing of Fastqs
         '''
+        print "Started Task: {x}-{y} {z}".format(x='DeMultiplexer',y=self.sample_name,z=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         if config().seqtype.upper() == 'WTS':
             create_cell_fastqs(self.sample_dir,self.temp_metric_file,
                                self.cell_index_file,self.multiplex_file,
@@ -167,6 +171,7 @@ class DeMultiplexer(luigi.Task):
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
+        print "Finished Task: {x}-{y} {z}".format(x='DeMultiplexer',y=self.sample_name,z=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
     def output(self):
         ''' Verify the output from this task
@@ -197,11 +202,13 @@ class LoadGenomeIndex(luigi.Task):
     def run(self):
         ''' Work entails loading the genome index
         '''
+        print "Started Task: {x} {y}".format(x='LoadGenomeIndex',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         star_load_index(config().star,config().genome_dir,config().star_load_params)
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
-
+        print "Finished Task: {x} {y}".format(x='LoadGenomeIndex',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+ 
     def output(self):
         ''' Output from this task is the verification file
         '''
@@ -256,6 +263,7 @@ class Alignment(luigi.Task):
     def run(self):
         ''' Work is to run STAR alignment
         '''
+        print "Started Task: {x}-{y}-{z} {v}".format(x='STAR Alignment',y=self.sample_name,z=self.cell_num,v=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         if not is_gzip_empty(self.cell_fastq): ## Make sure the file is not empty
             ## Do the alignment
             star_alignment(config().star,config().genome_dir,
@@ -266,6 +274,7 @@ class Alignment(luigi.Task):
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
+        print "Finished Task: {x}-{y}-{z} {v}".format(x='STAR Alignment',y=self.sample_name,z=self.cell_num,v=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
     def output(self):
         ''' Output from this task for verification
@@ -327,6 +336,7 @@ class CountMT(luigi.Task):
     def run(self):
         ''' Work to be done is counting of UMIs
         '''
+        print "Started Task: {x}-{y}-{z} {v}".format(x='UMI Counting',y=self.sample_name,z=self.cell_num,v=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         if not is_gzip_empty(self.cell_fastq): ## Make sure the file is not empty
             if config().seqtype.upper() == 'WTS':
                 count_umis_wts(GENE_TREE,self.tagged_bam,self.outfile,
@@ -334,10 +344,11 @@ class CountMT(luigi.Task):
             else:
                 count_umis(GENE_HASH,config().primer_file,self.tagged_bam,
                            self.outfile_primer,self.outfile,
-                           self.metricsfile,self.num_cores)
+                           self.metricsfile,self.logfile,self.num_cores)
 
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
+        print "Finished Task: {x}-{y}-{z} {v}".format(x='UMI Counting',y=self.sample_name,z=self.cell_num,v=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
     def output(self):
         ''' The output from this task
@@ -367,6 +378,9 @@ class JoinCountFiles(luigi.Task):
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
         self.count_file = os.path.join(self.sample_dir,
                                        self.sample_name+'.umi.counts.txt')
+        self.count_file_primers = os.path.join(self.sample_dir,
+                                       self.sample_name+'.umi.counts.primers.txt')
+        
         self.temp_metric_file = os.path.join(self.sample_dir,
                                        '%s_read_stats.temp.txt'%self.sample_name)
         self.metric_file = os.path.join(self.sample_dir,
@@ -420,6 +434,7 @@ class JoinCountFiles(luigi.Task):
     def run(self):
         ''' Work to be done is merging individual cell files for a given sample
         '''
+        print "Started Task: {x}-{y} {z}".format(x='JoinCountFiles',y=self.sample_name,z=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         ## Merge gene level count files first
         files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/umi_count.txt"))
         merge_count_files(self.sample_dir,self.count_file,self.sample_name,True,len(self.cell_indices),files_to_merge)
@@ -430,14 +445,14 @@ class JoinCountFiles(luigi.Task):
             ## Merge primer level count files
             wts = False
             files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/umi_count.primers.txt"))
-            merge_count_files(self.sample_dir,self.count_file,self.sample_name,wts,len(self.cell_indices),files_to_merge)            
+            merge_count_files(self.sample_dir,self.count_file_primers,self.sample_name,wts,len(self.cell_indices),files_to_merge)            
         ## Merge metric files
         files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/read_stats.txt"))
         merge_metric_files(self.sample_dir,self.temp_metric_file,self.metric_file,self.metric_file_cell,self.sample_name,wts,len(self.cell_indices),files_to_merge)
-
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
-
+        print "Finished Task: {x}-{y} {z}".format(x='JoinCountFiles',y=self.sample_name,z=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+  
     def output(self):
         ''' Output from this task
         '''
@@ -460,10 +475,11 @@ class CombineSamples(luigi.Task):
         ''' Class constructor
         '''
         super(CombineSamples,self).__init__(*args,**kwargs)
-        self.combined_count_file = os.path.join(self.output_dir,'combined.umi.counts.txt')
-        self.combined_count_file_primers = os.path.join(self.output_dir,'combined.umi.counts.primers.txt')
-        self.combined_cell_metrics_file = os.path.join(self.output_dir,'combined.cell.metrics.txt')
-        self.combined_sample_metrics_file = os.path.join(self.output_dir,'combined.sample.metrics.txt')
+	self.runid = os.path.basename(self.output_dir)
+        self.combined_count_file = os.path.join(self.output_dir,'{}.umi.counts.txt'.format(self.runid))
+        self.combined_count_file_primers = os.path.join(self.output_dir,'{}.umi.counts.primers.txt'.format(self.runid))
+        self.combined_cell_metrics_file = os.path.join(self.output_dir,'{}.cell.metrics.txt'.format(self.runid))
+        self.combined_sample_metrics_file = os.path.join(self.output_dir,'{}.sample.metrics.txt'.format(self.runid))
         ## The verification file for this task
         self.target_dir = os.path.join(self.output_dir,'targets')
         if not os.path.exists(self.target_dir):
@@ -504,6 +520,7 @@ class CombineSamples(luigi.Task):
     def run(self):
         ''' Work to run is merging sample count and metric files
         '''
+        print "Started Task: {x} {y}".format(x='CombineSamples',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         ## Aggregate on gene level
         files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*/umi_count.txt"))
         combine_count_files(files_to_merge,self.combined_count_file,True)
@@ -519,6 +536,7 @@ class CombineSamples(luigi.Task):
         combine_sample_metrics(files_to_merge,self.combined_sample_metrics_file)
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
+	print "Finished Task: {x} {y}".format(x='CombineSamples',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
     def output(self):
         ''' Output from this task
@@ -552,10 +570,10 @@ class ClusteringAnalysis(luigi.Task):
         self.perplexity = 10
         self.hvgthres = 0.40
         ## Generic Params for input files to the R code
-        self.combined_count_file = os.path.join(self.output_dir,'combined.umi.counts.txt')
-        self.combined_cell_metrics_file = os.path.join(self.output_dir,'combined.cell.metrics.txt')
-        self.logfile = os.path.join(self.output_dir,'logs/')
         self.runid = os.path.basename(self.output_dir)
+        self.combined_count_file = os.path.join(self.output_dir,'{}.umi.counts.txt'.format(self.runid))
+        self.combined_cell_metrics_file = os.path.join(self.output_dir,'{}.cell.metrics.txt'.format(self.runid))
+        self.logfile = os.path.join(self.output_dir,'logs/')
         self.script_path =  os.path.join(os.path.dirname(
             os.path.realpath(__file__)),'core/secondary_analysis_pipeline.R')
         ## Pipeline specific params
@@ -585,14 +603,18 @@ class ClusteringAnalysis(luigi.Task):
     def run(self):
         ''' Work to be done here is to run the R code
         '''
+        print "Starting Task: {x} {y}".format(x='ClusteringAnalysis',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
         ## Clean the output files first
         clean_for_clustering(self.combined_cell_metrics_file,self.combined_count_file)
+	## Run clustering analysis
         run_cmd(self.cmd)
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
+        print "Finished Task: {x} {y}".format(x='ClusteringAnalysis',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
     def output(self):
         ''' The output from this task to check is
         the verification file
         '''
         return luigi.LocalTarget(self.verification_file)
+
