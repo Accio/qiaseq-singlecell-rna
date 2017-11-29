@@ -34,7 +34,7 @@ gene.check <- function(counts.table){
     geneDropped <- rownames(counts.table)[!geneInclude]
     new.counts <- counts.table[geneInclude,]
   }
-  out <- list(qc.pass = qc.pass, gene.drop = geneDropped, new.counts = new.counts)
+  out <- list(qc.pass = qc.pass, gene.drop = geneDropped, new.counts = as.matrix(new.counts))
   return(out)
 }
 
@@ -49,9 +49,9 @@ cell.check <- function(counts.table){
   } else{
     qc.pass <- FALSE
     cellDropped <- colnames(counts.table)[!cellInclude]
-    new.counts <- counts.table[,!cellInclude,]
+    new.counts <- counts.table[,cellInclude]
   }
-  out <- list(qc.pass = qc.pass, cell.drop = cellDropped, new.counts = new.counts)
+  out <- list(qc.pass = qc.pass, cell.drop = cellDropped, new.counts = as.matrix(new.counts))
   return(out)
 }
 
