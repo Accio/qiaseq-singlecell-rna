@@ -40,8 +40,10 @@ gene.check <- function(counts.table){
 
 # quality check for cells
 cell.check <- function(counts.table){
-  totalCountsPerCell <- apply(counts.table, 2, sum)
-  cellInclude <- ifelse(totalCountsPerCell >= 5, TRUE, FALSE)
+  ercc <- ifelse(grepl('ERCC', rownames(counts.table)), TRUE, FALSE)
+  totalERCCCountsPerCell <- apply(counts.table[ercc,], 2, sum)
+  totalGeneCountsPerCell <- apply(counts.table[!ercc,], 2, sum)
+  cellInclude <- ifelse(totalERCCCountsPerCell >= 5 & totalGeneCountsPerCell >= 5, TRUE, FALSE)
   if(all(cellInclude)){
     qc.pass <- TRUE
     cellDropped <- c()
