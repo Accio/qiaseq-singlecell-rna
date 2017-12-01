@@ -48,7 +48,7 @@ def find_primer(primer_tree,read_tup):
         return ('Unmapped',mt,0,0)
     
     if read_chrom not in primer_tree:
-        logger.info("{read_id}: Multimapped".format(read_id=read_name))
+        logger.info("{read_id}: Unknown_Chrom".format(read_id=read_name))
         return ('Unknown_Chrom',mt,0,nh)        
 
     if read_is_reverse: ## The primer is mapped to the last n bases of the read , as the reads in the bam are always on the +ve strand , hence we need to see if the end of the read still falls within the primer stop site from the design file.

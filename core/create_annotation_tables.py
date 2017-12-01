@@ -4,43 +4,17 @@ from intervaltree import IntervalTree
 from collections import defaultdict
 from extract_multiplex_region import open_by_magic
 
-def create_gene_anno(annotation_db_file,annotation_gtf):
-    ''' Create a table to store genic annotations
-    '''
-    ## Remove the file if it is already present
-    os.system('rm -f {}'.format(annotation_db_file))
-    conn = sqlite3.connect(annotation_db_file)
-    cur = conn.cursor()
-    create_table_sql = (
-        '''CREATE TABLE gene_annotation '''
-        '''(chrom text,start int,stop int,strand text'''
-        ''',info text,gene text,gene_type text)'''
-    )
-    cur.execute(create_table_sql)
-    ## Parse the gencode annotation file and insert to db
-    with open_by_magic(annotation_gtf) as IN:
-        for line in IN:
-            if line[0] == "#": ## Skip header
-                continue
-            contents = line.strip('\n').split('\t')
-            if contents[2] == 'gene':
-                chrom = contents[0]
-                start = contents[3]
-                end = contents[4]
-                strand = contents[6]
-                info = contents[-1]
-                gene = info.split(';')[3].split()[1].strip('\"')
-                gene_type = info.split(';')[1].split()[1].strip('\"')
-                cols = [chrom,start,end,strand,info,gene,gene_type]
-                cur.execute('''INSERT INTO gene_annotation VALUES (?,?,?,?,?,?,?)''',cols)
-                conn.commit()
-    conn.close()
+def create_gene_hash(annotation_gtf,ercc_bed):
+    ''' Create a Hash table with annotation information for Genes
 
-def create_gene_hash(annotation_gtf):
-    '''
+    :param str: annotation_gtf: path to the genic annotation gtf file 
+    :param str: ercc_bed: path to the bed file with ERCC information
+
+    :return A dictionary with annotation information
+    :rtype dict
     '''
     gene_info = defaultdict(list)
-    ## Parse the gencode annotation file and insert to db
+    ## Parse the gencode annotation file and store in the dictionary
     with open_by_magic(annotation_gtf) as IN:
         for line in IN:
             if line[0] == "#":
@@ -55,14 +29,23 @@ def create_gene_hash(annotation_gtf):
                 gene = info.split(';')[3].split()[1].strip('\"')
                 gene_type = info.split(';')[1].split()[1].strip('\"')
                 cols = [chrom,start,end,strand,gene,gene_type]
-                #if gene in gene_info:
-                    #print 'duplicate gene: {}'.format(gene)
                 gene_info[gene] = cols
+                
+    with open(ercc_bed,'r') as IN:
+        for line in IN:
+            chrom,start,end,seq,strand,ercc = line.strip("\n").split("\t")
+            cols = [chrom,start,end,strand,chrom,ercc]
+            gene_info[chrom] = cols
+
     return gene_info
 
-def create_gene_tree(annotation_gtf,merge_coordinates=False):
+def create_gene_tree(annotation_gtf,ercc_bed,merge_coordinates=False):
     '''
     :param str annotation_gtf : a gtf file for identifying genic regions
+    :param str ercc_bed: a bed file for storing information about ERCC regions
+
+    :return An interval tree with annotation gene and ercc annotation information
+    :rtype object : IntervalTree data structure
     '''
     gene_tree = defaultdict(lambda:defaultdict(IntervalTree))
     genes = defaultdict(list)
@@ -113,6 +96,14 @@ def create_gene_tree(annotation_gtf,merge_coordinates=False):
                 else: ## Store all intervals without merging
                     genes[gene].append((start,end,chrom,strand,gene,gene_type))
 
+    ## ERCC info
+    with open(ercc_bed,'r') as IN:
+        for line in IN:
+            chrom,start,end,seq,strand,ercc = line.strip("\n").split("\t")
+            if chrom in genes:
+                raise Exception("Duplicate ERCC names !")
+            genes[chrom] = (start,end,chrom,strand,chrom,ercc)
+    
     ## Build a gene tree to store gene info
     for gene in genes:
         for info in genes[gene]:

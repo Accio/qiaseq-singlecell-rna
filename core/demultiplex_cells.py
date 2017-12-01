@@ -16,9 +16,7 @@ for downstream anaylsis.
 """
 
 ## To do :
-## 1. Write a wrapper/workflow to use create_cell_fastqs() (Preferably luigi)
-## 2. Manage injestion of parameters
-## 3. Improve runtime, currently takes a ~64 secs to multiplex and write fastqs
+## 1. Improve runtime, currently takes a ~64 secs to multiplex and write fastqs
 ## for a readset of size 2 million reads
 
 
@@ -156,7 +154,10 @@ def read_cell_index_file(cell_index_file):
     return d
 
 def write_metrics(metric_file,metric_dict,metrics):
-    '''
+    ''' Write Metrics
+    :param str metric_file: output file to write the metrics to
+    :param dict metric_dict: dictionary containing the metrics
+    :param list metrics: ordered list of metrics containing dictionary keys
     '''
     with open(metric_file,'w') as OUT:
         for key in metrics:
@@ -168,8 +169,7 @@ def write_metrics(metric_file,metric_dict,metrics):
 
 
 def write_fastq(read_info,OUT):
-    '''
-    Write a fastq file
+    ''' Write a fastq file
 
     :param str read_info: a list whose elements are the 4 lines of a fastq
     :param fastq_loc: full path to the fastq file to write to
@@ -238,7 +238,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
             cell_index,mt = read_id_hash[key]
             ret = match_cell_index(cell_indices,cell_index,0)
             if ret == True:
-                new_read_id = key+" mi:Z:%s"%mt
+                new_read_id = key+":%s"%mt ## CellIndex can be added here as well
                 trimmed_seq,trimming_index = trim_read(seq,polyA_motif)
                 if trimming_index: ## Non zero trimming index
                     qual = qual[0:trimming_index]
@@ -270,7 +270,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
          ('num_reads_after_region_extraction',reads_to_demultiplex),
          ('num_reads_cellindex_mismatch',reads_dropped_cellindex),
          ('num_reads_less_than_25bp',reads_dropped_size),
-         ('cell_bleeding_perc',float(reads_dropped_cellindex)/(reads_to_demultiplex)*100),
+         ('perc_cell_index_mismatch',float(reads_dropped_cellindex)/(reads_to_demultiplex)*100),
          ('perc_reads_demultiplexed',(float(reads_demultiplexed)/num_reads)*100),
          ('num_reads_demultiplexed_for_alignment',reads_demultiplexed),
         ]

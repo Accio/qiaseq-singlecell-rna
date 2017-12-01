@@ -50,8 +50,9 @@ def iterate_bam_chunks(tagged_bam,chunks=750000):
                 chromosome = '*'
             else:
                 chromosome = chroms[read.tid]['SN']
+            umi = read.qname.split(":")[-1]
             to_yield.append((read.qname,read.seq, read.is_reverse, read.alen,chromosome,
-                             read.pos, read.cigarstring, read.get_tag('mi'),
+                             read.pos, read.cigarstring, umi,
                              read.get_tag('NH')))
         yield to_yield
 
@@ -79,9 +80,6 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
     ercc  = 0
     ercc_multimapped = 0
     total_UMIs = 0
-    ## To do : Store an ERCC file to output correct coordinates
-    ercc_names = ['ERCC-00002','ERCC-00003','ERCC-00004','ERCC-00009','ERCC-00012','ERCC-00013','ERCC-00014','ERCC-00016','ERCC-00017','ERCC-00019','ERCC-00022','ERCC-00024','ERCC-00025','ERCC-00028','ERCC-00031','ERCC-00033','ERCC-00034','ERCC-00035','ERCC-00039','ERCC-00040','ERCC-00041','ERCC-00042','ERCC-00043','ERCC-00044','ERCC-00046','ERCC-00048','ERCC-00051','ERCC-00053','ERCC-00054','ERCC-00057','ERCC-00058','ERCC-00059','ERCC-00060','ERCC-00061','ERCC-00062','ERCC-00067','ERCC-00069','ERCC-00071','ERCC-00073','ERCC-00074','ERCC-00075','ERCC-00076','ERCC-00077','ERCC-00078','ERCC-00079','ERCC-00081','ERCC-00083','ERCC-00084','ERCC-00085','ERCC-00086','ERCC-00092','ERCC-00095','ERCC-00096','ERCC-00097','ERCC-00098','ERCC-00099','ERCC-00104','ERCC-00108','ERCC-00109','ERCC-00111','ERCC-00112','ERCC-00113','ERCC-00116','ERCC-00117','ERCC-00120','ERCC-00123','ERCC-00126','ERCC-00130','ERCC-00131','ERCC-00134','ERCC-00136','ERCC-00137','ERCC-00138','ERCC-00142','ERCC-00143','ERCC-00144','ERCC-00145','ERCC-00147','ERCC-00148','ERCC-00150','ERCC-00154','ERCC-00156','ERCC-00157','ERCC-00158','ERCC-00160','ERCC-00162','ERCC-00163','ERCC-00164','ERCC-00165','ERCC-00168','ERCC-00170','ERCC-00171']
-    ercc_info = {}
     ## Store umi counts for each gene
     umi_counter = defaultdict(lambda:defaultdict(int))
     logger.info('Using {} cores'.format(cores))
@@ -107,9 +105,7 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
                         ercc_multimapped+=1
                         multimapped+=1
                     else:
-                        info = ('N/A','N/A','N/A','N/A',gene_info,'N/A')
-                        ercc_info[gene_info] = info
-                        umi_counter[info][umi]+=1
+                        umi_counter[gene_info][umi]+=1
                     found+=1
             else:
                 if nh>1:
@@ -133,19 +129,6 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
                     total_UMIs+=umi_count
                     print >> OUT,chrom+'\t'+str(start)+'\t'+str(end)+'\t'+strand+'\t'+gene+\
                         '\t'+gene_type+'\t'+str(umi_count)
-        ## Write ERCC counts
-        for name in ercc_names:
-            if name in ercc_info:                
-                gene_info = ercc_info[name]
-                start,end,chrom,strand,gene,gene_type = gene_info
-                umi_count = len(umi_counter[gene_info])
-            else:
-                start=end=chrom=strand=gene_type='N/A'
-                gene = name
-                umi_count = 0
-            total_UMIs+=umi_count
-            print >> OUT,chrom+'\t'+str(start)+'\t'+str(end)+'\t'+strand+'\t'+gene+\
-                '\t'+gene_type+'\t'+str(umi_count)
     ## Write metrics
     metric_dict = OrderedDict([
         ('num_reads_mapped',found+miss_chr+not_annotated),
@@ -177,8 +160,8 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
     ## Set up logging
     logger = logging.getLogger("count_umis")
     logger.setLevel(logging.DEBUG)
-    LOG = logging.FileHandler(logfile)
-    logger.addHandler(LOG)    
+    ch = logging.StreamHandler(sys.stdout)
+    logger.addHandler(ch)
     ## Variable Initialization
     primer_info = defaultdict(list)
     primer_tree = defaultdict(lambda:IntervalTree())

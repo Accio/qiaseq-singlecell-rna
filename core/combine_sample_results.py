@@ -83,7 +83,6 @@ def read_cell_file(cfile,metric_dict):
     '''
     i=0
     columns = []
-
     with open(cfile,'r') as IN:
         for line in IN:
             contents = line.strip('\n').split('\t')
@@ -107,13 +106,14 @@ def read_sample_metrics(metric_file,metric_dict):
         assert sample != '', "Error could not identify sample name from file path : {}".format(metric_file)
         for line in IN:
             metric,val = line.strip('\n').split(':')
-            metric_dict[sample][metric] = float(val)
+            metric_dict[metric][sample] = float(val)
     return metric_dict
 
-def combine_sample_metrics(files_to_merge,outfile):
+def combine_sample_metrics(files_to_merge,outfile,is_low_input):
     ''' Combine metrics on the sample level similar to the cells
     :param list files_to_merge: the files to merge
     :param outfile: the output file to write to
+    :param str: is_lowinput: Whether the protocol was for a low input application(1/0)
     '''
     sample_metrics = MyOrderedDict()
     ## Read metrics for each sample
@@ -122,14 +122,16 @@ def combine_sample_metrics(files_to_merge,outfile):
     ## Combine and write resultant output file
     with open(outfile,'w') as OUT:
         i=0
-        for sample in sample_metrics:
+        for metric in sample_metrics:
+            if metric=="num_reads_mapped_ercc" and is_low_input=="1":
+                continue
             if i == 0:
-                header = 'Samples\t'+'\t'.join(sample_metrics[sample].keys())
+                header = 'Samples\t'+'\t'.join(sample_metrics[metric].keys())
                 OUT.write(header+'\n')
                 i+=1
-            out = sample
-            for metric in sample_metrics[sample]:
-                out = out+'\t'+float_to_string(round(sample_metrics[sample][metric],2))
+            out = metric
+            for sample in sample_metrics[metric]:
+                out = out+'\t'+float_to_string(round(sample_metrics[metric][sample],2))
             OUT.write(out+'\n')
         
 def combine_cell_metrics(files_to_merge,outfile):
@@ -154,7 +156,7 @@ def combine_cell_metrics(files_to_merge,outfile):
                 out = out+'\t'+cell_metrics[cell][metric]
             OUT.write(out+'\n')
 
-def combine_count_files(files_to_merge,outfile,wts):
+def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
     ''' Function to combine cells from different samples into 1 file
     The directory strucuture of a typical run loooks like : 
               <output_folder> 
@@ -168,7 +170,12 @@ def combine_count_files(files_to_merge,outfile,wts):
     :param list files_to_merge: full path to the files to merge
     :param str outfile: The combined outputfile to write to
     :param bool wts: Whether this was whole transcriptome sequencing 
-    '''
+    :param list cells_to_restrict: Restrict cells to only this set when writing the primer count file
+                                   This list is based on the criteria mentioned below
+    
+    :return The cells written to the file , any cell with < 5 UMIs for each gene is not written
+    :rtype list
+    ''' 
     i = 0
     UMI = defaultdict(lambda:defaultdict(int))
     header_cells = set()
@@ -185,9 +192,13 @@ def combine_count_files(files_to_merge,outfile,wts):
                 ## Hash the umi counts by annotation and cells
                 UMI[key][cell_key] = umi
                 check_counts.append(int(umi))
-            ## Add check here to see if cells are part of user's listing
-            #if not all(e == 0 for e in check_counts): ## Check to make sure the cell doesnt have zero counts
-                header_cells.add(cell_key)
+                
+            if not wts:
+                if cell_key in cells_to_restrict:
+                    header_cells.add(cell_key)
+            else:
+                if not all(e < 5 for e in check_counts): ## Check to make sure the cell has atleast 5 UMI count for every gene
+                    header_cells.add(cell_key)
     ## Create header
     if wts:
         header = "chromosome\tstart\tstop\tstrand\tgene\tgene_type\t{cells}\n"
@@ -210,3 +221,5 @@ def combine_count_files(files_to_merge,outfile,wts):
                 
     ## Sort the count file
     sort_by_cell(outfile)
+
+    return header_cells

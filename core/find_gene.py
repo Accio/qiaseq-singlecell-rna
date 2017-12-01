@@ -36,11 +36,17 @@ def find_gene(gene_tree,read_tup):
         logger.info("{read_id}: Unmapped".format(read_id=read_id))
         return ('Unmapped',mt,0,nh)
     if 'ERCC' in read_chrom:
-        logger.info("{read_id}: Mapped to {ercc}".format(read_id=read_id,ercc=read_chrom))
-        return (read_chrom,mt,0,nh)
+        result = gene_tree[read_chrom]["+"].search(read_pos,read_end)
+        if result:
+            return (result.data,mt,0,nh)            
+            logger.info("{read_id}: Mapped to {ercc}".format(read_id=read_id,ercc=read_chrom))
+        else:
+            return ('Unknown_Chrom',mt,0,nh)
+            logger.info("{read_id}: Mapped to {ercc}, but was off-loci in gene-tree".format(read_id=read_id,ercc=read_chrom))
+
     if read_chrom not in gene_tree:
         logger.info("{read_id}: Chromosome {chrom} was not present in annotation gene interval".format(read_id=read_id,chrom=read_chrom))
-        return ('Unknown_Chrom',mt,0,nh)
+        return ('Unknown',mt,0,nh)
 
     ## Search the interval tree
     read_end = return_read_end_pos(read_pos,read_cigar)
