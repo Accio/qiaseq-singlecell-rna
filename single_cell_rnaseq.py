@@ -539,6 +539,12 @@ class CombineSamples(luigi.Task):
         ## Aggregate metrics across different samples
         files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_read_stats.txt"))
         combine_sample_metrics(files_to_merge,self.combined_sample_metrics_file,config().is_low_input)
+        ## Sort the UMI count files by gene/primer coordinates
+        run_cmd("sort -k1,1 -k2,2 -k3,3 {count_file} > {temp}",format(count_file=self.combined_count_file_primers,'temp.txt'))
+        run_cmd("mv {temp} {count_file}",format(temp='temp.txt',self.combined_count_file_primers))
+        run_cmd("sort -k1,1 -k2,2 -k3,3 {count_file} > {temp}",format(count_file=self.combined_count_file,'temp.txt'))
+        run_cmd("mv {temp} {count_file}",format(temp='temp.txt',self.combined_count_file))        
+        
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
 	logger.info("Finished Task: {x} {y}".format(x='CombineSamples',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
