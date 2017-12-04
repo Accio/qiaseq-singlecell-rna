@@ -481,10 +481,10 @@ class CombineSamples(luigi.Task):
         '''
         super(CombineSamples,self).__init__(*args,**kwargs)
 	self.runid = os.path.basename(self.output_dir)
-        self.combined_count_file = os.path.join(self.output_dir,'{}.umi.counts.txt'.format(self.runid))
+        self.combined_count_file = os.path.join(self.output_dir,'{}.umi.counts.genes.txt'.format(self.runid))
         self.combined_count_file_primers = os.path.join(self.output_dir,'{}.umi.counts.primers.txt'.format(self.runid))
-        self.combined_cell_metrics_file = os.path.join(self.output_dir,'{}.cell.metrics.txt'.format(self.runid))
-        self.combined_sample_metrics_file = os.path.join(self.output_dir,'{}.sample.metrics.txt'.format(self.runid))
+        self.combined_cell_metrics_file = os.path.join(self.output_dir,'{}.cell_index.metrics.txt'.format(self.runid))
+        self.combined_sample_metrics_file = os.path.join(self.output_dir,'{}.sample_index.metrics.txt'.format(self.runid))
         ## The verification file for this task
         self.target_dir = os.path.join(self.output_dir,'targets')
         if not os.path.exists(self.target_dir):
@@ -532,7 +532,7 @@ class CombineSamples(luigi.Task):
         ## Also, aggregate on primer level for targeted
         if config().seqtype.upper() != 'WTS':
             files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*/umi_count.primers.txt"))
-            combine_count_files(files_to_merge,self.combined_count_file_primers,False,cells_to_restrict)
+            cells_to_restrict = combine_count_files(files_to_merge,self.combined_count_file_primers,False,cells_to_restrict)
         ## Aggregate metrics for cells
         files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_cell_stats.txt"))
         combine_cell_metrics(files_to_merge,self.combined_cell_metrics_file,cells_to_restrict)
@@ -583,8 +583,8 @@ class ClusteringAnalysis(luigi.Task):
         self.hvgthres = 0.40
         ## Generic Params for input files to the R code
         self.runid = os.path.basename(self.output_dir)
-        self.combined_count_file = os.path.join(self.output_dir,'{}.umi.counts.txt'.format(self.runid))
-        self.combined_cell_metrics_file = os.path.join(self.output_dir,'{}.cell.metrics.txt'.format(self.runid))
+        self.combined_count_file = os.path.join(self.output_dir,'{}.umi.counts.genes.txt'.format(self.runid))
+        self.combined_cell_metrics_file = os.path.join(self.output_dir,'{}.cell_index.metrics.txt'.format(self.runid))
         self.logfile = os.path.join(self.output_dir,'logs/')
         self.script_path =  os.path.join(os.path.dirname(
             os.path.realpath(__file__)),'core/secondary_analysis_pipeline.R')

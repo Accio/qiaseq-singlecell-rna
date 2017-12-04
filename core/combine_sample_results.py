@@ -102,7 +102,7 @@ def read_sample_metrics(metric_file,metric_dict):
     ''' Read a sample metrics file
     '''
     with open(metric_file,'r') as IN:
-        sample = os.path.basename(metric_file)
+        sample = os.path.basename(metric_file).strip("_read_stats.txt")
         assert sample != '', "Error could not identify sample name from file path : {}".format(metric_file)
         for line in IN:
             metric,val = line.strip('\n').split(':')
@@ -200,8 +200,8 @@ def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
                 if cell_key in cells_to_restrict:
                     header_cells.add(cell_key)
             else:
-                if not all(e < 5 for e in check_counts): ## Check to make sure the cell has atleast 5 UMI count for every gene
-                    header_cells.add(cell_key)
+                if any(e >= 5 for e in check_counts): ## Check to make sure the cell has atleast 5 UMI count for any 1 gene
+                    header_cells.add(cell_key)          
     ## Create header
     if wts:
         header = "chromosome\tstart\tstop\tstrand\tgene\tgene_type\t{cells}\n"
@@ -209,19 +209,20 @@ def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
         header = "chromosome\tstart\tstop\tstrand\tgene\tprimer_sequence\t{cells}\n"
     temp = '\t'.join(list(header_cells))
     head = header.format(cells=temp)
-    print head
     ## Print output
     with open(outfile,'w') as OUT:
         OUT.write(head)
         for key in UMI:
+            write=True
             out = '\t'.join(key)
             for cell in header_cells:
                 if cell not in UMI[key]:
-                    out = out + '\t0'
+                    raise Exception("Cell not hashed for Gene/Primer : {cell}-{k}".format(cell=cell,k=key))
+                    #out = out + '\t0'
                 else:
                     out = out + '\t{}'.format(UMI[key][cell])
-            OUT.write(out+'\n')      
-                
+            if write:        
+                OUT.write(out+'\n')                
     ## Sort the count file
     sort_by_cell(outfile)
 
