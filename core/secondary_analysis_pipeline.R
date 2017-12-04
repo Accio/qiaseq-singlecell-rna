@@ -7,7 +7,7 @@
 rm(list=ls())
 
 # load functions
-source("/home/xuc/scRNA-seq/code/functions.R")
+source("/srv/qgen/code/qiaseq-singlecell-rna/core/functions.R")
 
 #list of arguments
 args <- commandArgs(TRUE)
@@ -243,8 +243,8 @@ DetectHVG <- BASiCS_DetectHVG(FilterData, MCMC_Output, VarThreshold = hvg.thres,
 # HVG defined as genes above threshold or top 20% biological variation percentage (minimum 10 genes), to avoid edge cases when only a few genes meet threshold
 HVG1 <- DetectHVG$Table[DetectHVG$Table$HVG, 'GeneNames']
 var20p <- max(10, ceiling(0.2 * nrow(VarDecomp)))
-VG2 <- VarDecomp$GeneNames[1:var20p] 
-HVG2 <- unique(c(HVG1, HVG2))
+HVG2 <- VarDecomp$GeneNames[1:var20p] 
+HVG <- unique(c(HVG1, HVG2))
 df.HVG <- data.frame(HVG)
 write.csv(df.HVG, paste0('clustering_results/', run.id, '.highly_variable_genes.csv'), row.names=F, quote=F)
 
