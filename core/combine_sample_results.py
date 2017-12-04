@@ -134,10 +134,11 @@ def combine_sample_metrics(files_to_merge,outfile,is_low_input):
                 out = out+'\t'+float_to_string(round(sample_metrics[metric][sample],2))
             OUT.write(out+'\n')
         
-def combine_cell_metrics(files_to_merge,outfile):
+def combine_cell_metrics(files_to_merge,outfile,cells_to_restrict):
     ''' Combine cell metrics from different samples
     :param list files_to_merge: the files to merge
     :param str outfile: the outputfile to write the aggregate metrics
+    :param list cells_to_restrict: restrict cells to this list
     '''    
     cell_metrics = MyOrderedDict()
     files_to_merge  = natsort.natsorted(files_to_merge)
@@ -147,6 +148,8 @@ def combine_cell_metrics(files_to_merge,outfile):
     with open(outfile,'w') as OUT:
         i=0
         for cell in cell_metrics:
+            if cell not in cells_to_restrict:
+                continue
             if i == 0: ## Write Header
                 header = 'Cells\t'+'\t'.join(cell_metrics[cell].keys())
                 OUT.write(header+'\n')

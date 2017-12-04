@@ -535,16 +535,19 @@ class CombineSamples(luigi.Task):
             combine_count_files(files_to_merge,self.combined_count_file_primers,False,cells_to_restrict)
         ## Aggregate metrics for cells
         files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_cell_stats.txt"))
-        combine_cell_metrics(files_to_merge,self.combined_cell_metrics_file)
+        combine_cell_metrics(files_to_merge,self.combined_cell_metrics_file,cells_to_restrict)
         ## Aggregate metrics across different samples
         files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_read_stats.txt"))
         combine_sample_metrics(files_to_merge,self.combined_sample_metrics_file,config().is_low_input)
         ## Sort the UMI count files by gene/primer coordinates
-        run_cmd("sort -k1,1 -k2,2 -k3,3 {count_file} > {temp}",format(count_file=self.combined_count_file_primers,'temp.txt'))
-        run_cmd("mv {temp} {count_file}",format(temp='temp.txt',self.combined_count_file_primers))
-        run_cmd("sort -k1,1 -k2,2 -k3,3 {count_file} > {temp}",format(count_file=self.combined_count_file,'temp.txt'))
-        run_cmd("mv {temp} {count_file}",format(temp='temp.txt',self.combined_count_file))        
+        cmd1 = """ cat {count_file}| awk 'NR == 1; NR > 1 {{print $0 | "sort --ignore-case -V -k1,1 -k2,2 -k3,3"}}' > {temp}"""
+        cmd2 = """ cp {temp} {count_file} """
         
+        run_cmd(cmd1.format(count_file=self.combined_count_file_primers,temp='temp.txt'))
+        run_cmd(cmd2.format(temp='temp.txt',count_file=self.combined_count_file_primers))
+        run_cmd(cmd1.format(count_file=self.combined_count_file,temp='temp.txt'))
+        print cmd1.format(count_file=self.combined_count_file,temp='temp.txt')
+        run_cmd(cmd2.format(temp='temp.txt',count_file=self.combined_count_file))
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
 	logger.info("Finished Task: {x} {y}".format(x='CombineSamples',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
