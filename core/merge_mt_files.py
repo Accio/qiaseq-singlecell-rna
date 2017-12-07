@@ -35,9 +35,9 @@ def merge_count_files(basedir,out_file,sample_name,wts,ncells,files_to_merge):
     last_key = cell
 
     if wts:
-        header = "chromosome\tstart\tstop\tstrand\tgene\tgene_type\t{cells}\n"
+        header = "gene id\tgene\tstrand\tchrom\tloc 5' GRCH38\tloc 3' GRCH38\t{cells}\n"
     else:
-        header = "chromosome\tstart\tstop\tstrand\tgene\tprimer_sequence\t{cells}\n"
+        header = "primer sequence\tgene\tstrand\tchrom\tloc 5' GRCH38\tloc 3' GRCH38\t{cells}\n"
     with open(out_file,'w') as OUT:
         OUT.write(header.format(cells = cell_header))
         for key in MT:
@@ -65,8 +65,8 @@ def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sam
     cells = range(1,ncells+1)
     metric_dict = OrderedDict()
     metric_dict_per_cell = defaultdict(lambda:defaultdict(int))
-    do_not_add_metrics = ['num_genes_annotated','num_primers_found']    
-    ## Read temp metrics file to get total reads demultiplexed
+    do_not_add_metrics = ['detected genes']
+    ## Read temp metrics file to get total reads , reads dropped during demultiplexing
     with open(temp_metric_file,'r') as M:
         for line in M:
             metric,val = line.strip('\n').split(':')
@@ -93,27 +93,73 @@ def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sam
                 metric_dict_per_cell[cell][metric] = int(val)
 
     ## Write metrics for the sample
-    write_metrics_sample(metric_dict,metric_file)
+    write_metrics_sample(metric_dict,metric_file,wts)
     ## Write metrics for each cell to a file
     write_metrics_cells(metric_dict_per_cell,ncells,sample_name,metric_file_cell,wts)
     
-def write_metrics_sample(sample_metrics,outfile):
+def write_metrics_sample(sample_metrics,outfile,wts):
     ''' Write metrics on sample level
+
     :param dict sample_metrics: <metric> -> <val>
     :param str outfile: the outputfile to write the metrics
+    :param bool wts: whether this is whole transcriptome seq
     '''
+    ## Check to make sure the metrics add up
+    reads_total = int(sample_metrics['reads total'])    
+    reads_dropped_demultiplexing = (
+        int(sample_metrics['reads dropped, cell id not extracted']) + \
+        int(sample_metrics['reads dropped, cell id not matching oligo']) + \
+        int(sample_metrics['reads dropped, less than 25 b.p'])       
+    )
+    if wts:
+        reads_dropped_counting = (
+            int(sample_metrics['reads dropped, not mapped to genome']) + \
+            int(sample_metrics['reads dropped, not annotated']) + \
+            int(sample_metrics['reads dropped, aligned to genome, multiple loci']) + \
+            int(sample_metrics['reads dropped, aligned to ERCC, multiple loci'])            
+        )
+        reads_used = (
+            int(sample_metrics['reads used, aligned to genome, unique loci']) + \
+            int(sample_metrics['reads used, aligned to ERCC, unique loci'])
+        )        
+    else:
+        reads_dropped_counting = (
+            int(sample_metrics['reads dropped, not mapped to genome']) + \
+            int(sample_metrics['reads dropped, off target']) + \
+            int(sample_metrics['reads dropped, primer not identified at read start']) + \
+            int(sample_metrics['reads dropped, less than 25 b.p endogenous seq after primer'])
+        )
+        reads_used = (
+            int(sample_metrics['reads used, aligned to genome, multiple loci']) + \
+            int(sample_metrics['reads used, aligned to genome, unique loci']) + \
+            int(sample_metrics['reads used, aligned to ERCC, multiple loci']) + \
+            int(sample_metrics['reads used, aligned to ERCC, unique loci'])
+        )        
+
     ## Write Overall Sample level aggregated metrics
     with open(outfile,'w') as M:
         for metric,val in sample_metrics.items():
             out = metric+': {}\n'.format(float_to_string(round(val,2)))
             M.write(out)
-        ## Calc percentage of reads for which genes were annotated
-        temp=(float(sample_metrics['num_reads_used'])/sample_metrics['num_reads_demultiplexed_for_alignment'])*100
-        M.write('perc_reads_used: {}\n'.format(float_to_string(round(temp,2))))
         ## Calc reads per UMI
-        temp=(float(sample_metrics['num_reads_used'])/sample_metrics['num_umis_used'])
-        M.write('reads_per_umi: {}\n'.format(float_to_string(round(temp,2))))
-
+        if wts:
+            total_reads = float(
+                int(sample_metrics['reads used, aligned to genome, unique loci']) + \
+                int(sample_metrics['reads used, aligned to ERCC, unique loci'])
+                )
+        else:
+            total_reads = float(
+                int(sample_metrics['reads used, aligned to genome, unique loci']) + \
+                int(sample_metrics['reads used, aligned to genome, multiple loci']) + \
+                int(sample_metrics['reads used, aligned to ERCC, unique loci']) + \
+                int(sample_metrics['reads used, aligned to ERCC, multiple loci'])
+                )            
+                
+        temp=(total_reads/sample_metrics['total UMIs'])
+        M.write('mean reads per UMI: {}\n'.format(float_to_string(round(temp,2))))
+        
+    assert (reads_total == reads_used + reads_dropped_demultiplexing + reads_dropped_counting),"Read accounting failed !"
+        
 def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
     ''' Write metrics for each cell
 
@@ -127,15 +173,12 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
     cells = range(1,ncells+1)
     if wts:
         header = (
-            "Cell\tTotal_reads\tTotal_pass_QC_reads\tDetected_genes\t"
-            "Mapped_reads\tMap_to_ERCC\tUnique_map_reads\tOn_target_reads\t"
-            "Mapped_ratio\tUnique_map_ratio\tOn_target_ratio\n"
+            "cell\treads total\treads used, aligned to genome\treads used, aligned to ERCC\tUMIs\tdetected genes\n"
         )
         header_len = len(header.split('\t'))
     else:            
         header = (
-            "Cell\tTotal_reads\tTotal_pass_QC_reads\tDetected_genes\tMapped_reads\t"
-            "Map_to_ERCC\tMultiple_hits_reads\n"
+            "cell\treads total\treads used, aligned to genome\treads used, aligned to ERCC\tUMIs\tdetected genes\n"
         )
         header_len = len(header.split('\t'))
     with open(outfile,'w') as OUT:
@@ -148,34 +191,28 @@ def write_metrics_cells(cell_metrics,ncells,sample_name,outfile,wts):
                 OUT.write(out)
             else:
                 if wts:
-                    out = [key , str(cell_metrics[cell]['num_reads']),
-                        str(cell_metrics[cell]['after_qc_reads']),
-                        str(cell_metrics[cell]['num_genes_annotated']),
-                        str(cell_metrics[cell]['num_reads_mapped']),
-                        str(cell_metrics[cell]['num_reads_mapped_ercc']),
-                        str(cell_metrics[cell]['num_reads_uniquely_mapped']),
-                        str(cell_metrics[cell]['num_reads_used']),
-                        float_to_string(
-                            round(float(
-                                cell_metrics[cell]['num_reads_mapped']) / \
-                                  cell_metrics[cell]['after_qc_reads'],2)),
-                        float_to_string(
-                            round(float(
-                                cell_metrics[cell]['num_reads_uniquely_mapped']) / \
-                                  cell_metrics[cell]['after_qc_reads'],2)),
-                        float_to_string(
-                            round(float(
-                                cell_metrics[cell]['num_reads_used']) / \
-                                  cell_metrics[cell]['after_qc_reads'],2))
-                        ]
+                    reads_used_genome = str(
+                        int(cell_metrics[cell]['reads used, aligned to genome, unique loci'])
+                    )
+                    reads_used_ercc = str(
+                        int(cell_metrics[cell]['reads used, aligned to ERCC, unique loci'])
+                    )
                 else:
-                    out = [ key, str(cell_metrics[cell]['num_reads']),
-                        str(cell_metrics[cell]['after_qc_reads']),
-                        str(cell_metrics[cell]['num_genes_found']),
-                        str(cell_metrics[cell]['num_reads_mapped']),
-                        str(cell_metrics[cell]['num_reads_mapped_ercc']),
-                        str(cell_metrics[cell]['num_reads_multimapped']),
-                    ]
+                    reads_used_genome = str(
+                        int(cell_metrics[cell]['reads used, aligned to genome, unique loci']) + \
+                        int(cell_metrics[cell]['reads used, aligned to genome, multiple loci'])
+                    )                   
+                    reads_used_ercc = str(
+                        int(cell_metrics[cell]['reads used, aligned to ERCC, unique loci']) + \
+                        int(cell_metrics[cell]['reads used, aligned to ERCC, multiple loci'])
+                    )                    
+                out = [
+                    key , str(cell_metrics[cell]['reads total']),                        
+                    reads_used_genome,
+                    reads_used_ercc,
+                    str(cell_metrics[cell]['total UMIs']),
+                    str(cell_metrics[cell]['detected genes'])
+                ]
                 assert header_len == len(out), "Error in Column Lengths!!"
                 OUT.write('\t'.join(out))
                 OUT.write('\n')               

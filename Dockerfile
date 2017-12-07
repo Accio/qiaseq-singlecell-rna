@@ -32,6 +32,7 @@ RUN pip install guppy
 RUN pip install luigi
 RUN pip install pandas
 RUN pip install natsort
+RUN pip install xlsxwriter
 
 ## R dependencies
 #setup R configs

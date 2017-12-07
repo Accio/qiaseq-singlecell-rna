@@ -17,11 +17,16 @@ def clean_for_clustering(combined_cell_metrics_file,combined_umi_counts_file):
     :param: str combined_cell_metrics: the path to the combined umi counts file
     ''' 
     clean_cells = []
+    clean_header_metrics = ["reads_total","reads_used_aligned_to_genome","reads_used_aligned_to_ERCC","UMIs","detected_genes"]
+    clean_header_umi = ["gene_id","gene","strand","chrom","loc_5prime_grch38","loc_3prime_grch38"]        
+    
     with open(combined_cell_metrics_file,'r') as IN,open(combined_cell_metrics_file+'.clean','w') as OUT:
         for line in IN:
             line = line.strip('\n')
             if line.startswith('Cell'):
-                print >> OUT,line
+                contents = line.split('\t')
+                contents[1:6] = clean_header_metrics
+                print >> OUT,"\t".join(contents)
                 continue
             else:                
                 contents = line.split('\t')
@@ -33,14 +38,16 @@ def clean_for_clustering(combined_cell_metrics_file,combined_umi_counts_file):
                     clean_cells.append(cell)
                     
     with open(combined_umi_counts_file,'r') as IN,open(combined_umi_counts_file+'.clean','w') as OUT:
+        i = 0
         for line in IN:
             line = line.strip('\n')
             contents = line.split('\t')
-            if line.startswith('chromosome'):
-                header_anno = contents[0:6]
+            if i == 0: ## Header
+                header_anno = clean_header_umi
                 header_cells = contents[6:]
                 outheader = '\t'.join(header_anno) + '\t' + '\t'.join(clean_cells)
                 print >> OUT,outheader
+                i=i+1
                 continue
             else:
                 umis = contents[6:]
@@ -59,26 +66,29 @@ def sort_by_cell(outputfile):
     '''
     temp=outputfile+'.sorted'
     with open(outputfile,'r') as IN,open(temp,'w') as OUT:
+        i=0
         for line in IN:
             contents=line.strip('\n').split('\t')
-            if contents[0] == 'chromosome': #header
+            if i == 0: #header
                 contents = line.strip('\n').split('\t')
                 anno_header = '\t'.join(contents[0:6])
                 cells = contents[6:]
                 sorted_cells = '\t'.join(natsort.natsorted(cells))
                 OUT.write(anno_header+'\t'+sorted_cells+'\n')
+                i=1
                 continue
             anno = '\t'.join(contents[0:6])
             sorted_vals = [x for _,x in natsort.natsorted(zip(cells,contents[6:]))]
             OUT.write(anno+'\t'+'\t'.join(sorted_vals)+'\n')
     os.system('mv {temp} {outputfile}'.format(temp=temp,outputfile=outputfile))
 
-def read_cell_file(cfile,metric_dict):
+def read_cell_file(cfile,metric_dict,is_lowinput):
     ''' Read a cell metrics file and return the parsed metrics as a dict
 
     :param str cfile: the cell metric file
     :param dict metric_dict: a dict of dict of metrics
     :return the dictionary of parsed metrics
+    :param str: is_lowinput: Whether the protocol was for a low input application(1/0)
     :rtype: dict
     '''
     i=0
@@ -94,6 +104,8 @@ def read_cell_file(cfile,metric_dict):
                 continue
             cell= contents[0]
             for i,metric in enumerate(metrics[1:]):
+                if metric in ["reads used, aligned to ERCC, multiple loci","reads used, aligned to ERCC, unique loci","reads dropped, aligned to ERCC, multiple loci"] and is_lowinput=="1":
+                    continue
                 metric_dict[cell][metric]= contents[i+1]
 
     return metric_dict
@@ -102,7 +114,7 @@ def read_sample_metrics(metric_file,metric_dict):
     ''' Read a sample metrics file
     '''
     with open(metric_file,'r') as IN:
-        sample = os.path.basename(metric_file).strip("_read_stats.txt")
+        sample = os.path.basename(metric_file).rstrip("_read_stats.txt")
         assert sample != '', "Error could not identify sample name from file path : {}".format(metric_file)
         for line in IN:
             metric,val = line.strip('\n').split(':')
@@ -123,7 +135,7 @@ def combine_sample_metrics(files_to_merge,outfile,is_low_input):
     with open(outfile,'w') as OUT:
         i=0
         for metric in sample_metrics:
-            if metric=="num_reads_mapped_ercc" and is_low_input=="1":
+            if metric=="reads used, aligned to ERCC" and is_low_input=="1":
                 continue
             if i == 0:
                 header = 'Samples\t'+'\t'.join(sample_metrics[metric].keys())
@@ -134,16 +146,17 @@ def combine_sample_metrics(files_to_merge,outfile,is_low_input):
                 out = out+'\t'+float_to_string(round(sample_metrics[metric][sample],2))
             OUT.write(out+'\n')
         
-def combine_cell_metrics(files_to_merge,outfile,cells_to_restrict):
+def combine_cell_metrics(files_to_merge,outfile,is_lowinput,cells_to_restrict):
     ''' Combine cell metrics from different samples
     :param list files_to_merge: the files to merge
     :param str outfile: the outputfile to write the aggregate metrics
+    :param str: is_lowinput: Whether the protocol was for a low input application(1/0)
     :param list cells_to_restrict: restrict cells to this list
     '''    
     cell_metrics = MyOrderedDict()
     files_to_merge  = natsort.natsorted(files_to_merge)
     for cfile in files_to_merge:
-        cell_metrics = read_cell_file(cfile,cell_metrics)
+        cell_metrics = read_cell_file(cfile,cell_metrics,is_lowinput)
 
     with open(outfile,'w') as OUT:
         i=0
@@ -204,9 +217,9 @@ def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
                     header_cells.add(cell_key)          
     ## Create header
     if wts:
-        header = "chromosome\tstart\tstop\tstrand\tgene\tgene_type\t{cells}\n"
+        header = "gene id\tgene\tstrand\tchrom\tloc 5' GRCh38\tloc 3' GRCh38\t{cells}\n"
     else:
-        header = "chromosome\tstart\tstop\tstrand\tgene\tprimer_sequence\t{cells}\n"
+        header = "primer seq\tgene\tstrand\tchrom\tloc 5' GRCh38\tloc 3' GRCh38\t{cells}\n"
     temp = '\t'.join(list(header_cells))
     head = header.format(cells=temp)
     ## Print output

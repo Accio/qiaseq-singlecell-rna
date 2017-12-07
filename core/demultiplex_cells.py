@@ -245,11 +245,11 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
                 if len(trimmed_seq) < 25: ## Drop reads below 25 b.p
                     reads_dropped_size+=1
                     num_reads+=1
-                    cell_metrics[cell_index]['num_reads']+=1
+                    cell_metrics[cell_index]['reads total']+=1
                     continue
                 read_info = new_read_id+'\n'+trimmed_seq+'\n'+p+'\n'+qual
                 write_fastq(read_info,FASTQS[cell_index])
-                cell_metrics[cell_index]['num_reads']+=1
+                cell_metrics[cell_index]['reads total']+=1
                 cell_metrics[cell_index]['after_qc_reads']+=1
                 reads_demultiplexed+=1
             else:
@@ -261,18 +261,15 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
 
     ## Write out the metrics
     ## 1. Per cell level
-    metrics_to_write = ['num_reads','after_qc_reads']
+    metrics_to_write = ['reads total','after_qc_reads']
     for cell,mfile in METRICS.items():
         write_metrics(mfile,cell_metrics[cell],metrics_to_write)
     ## 2. Aggregated across all the cells
     metric_dict = collections.OrderedDict(
-        [('num_reads',num_reads),
-         ('num_reads_after_region_extraction',reads_to_demultiplex),
-         ('num_reads_cellindex_mismatch',reads_dropped_cellindex),
-         ('num_reads_less_than_25bp',reads_dropped_size),
-         ('perc_cell_index_mismatch',float(reads_dropped_cellindex)/(reads_to_demultiplex)*100),
-         ('perc_reads_demultiplexed',(float(reads_demultiplexed)/num_reads)*100),
-         ('num_reads_demultiplexed_for_alignment',reads_demultiplexed),
+        [('reads total',num_reads),
+         ('reads dropped, cell id not extracted',num_reads - reads_to_demultiplex),
+         ('reads dropped, cell id not matching oligo',reads_dropped_cellindex),
+         ('reads dropped, less than 25 b.p',reads_dropped_size)
         ]
     )
     write_metrics(metric_file,metric_dict,metric_dict.keys())

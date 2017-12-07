@@ -16,6 +16,7 @@ from align_transcriptome import star_alignment,star_load_index,star_remove_index
 from count_mt import count_umis,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files
 from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics,clean_for_clustering
+from create_excel_sheet import write_excel_workbook
 from create_annotation_tables import create_gene_tree,create_gene_hash
 
 ## Some globals to cache across tasks
@@ -53,6 +54,7 @@ class config(luigi.Config):
     annotation_gtf = luigi.Parameter(description="Gencode annotation file")
     ercc_bed = luigi.Parameter(description="ERCC bed file with coordinate information")
     is_low_input = luigi.Parameter(description="Whether the sequencing protocol was for a low input application")
+    catalog_number = luigi.Parameter(description="The catalog number for this primer pool")
     
 class MyExtTask(luigi.ExternalTask):
     ''' Checks whether the file specified exists on disk
@@ -535,18 +537,18 @@ class CombineSamples(luigi.Task):
             cells_to_restrict = combine_count_files(files_to_merge,self.combined_count_file_primers,False,cells_to_restrict)
         ## Aggregate metrics for cells
         files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_cell_stats.txt"))
-        combine_cell_metrics(files_to_merge,self.combined_cell_metrics_file,cells_to_restrict)
+        combine_cell_metrics(files_to_merge,self.combined_cell_metrics_file,config().is_low_input,cells_to_restrict)
         ## Aggregate metrics across different samples
         files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_read_stats.txt"))
         combine_sample_metrics(files_to_merge,self.combined_sample_metrics_file,config().is_low_input)
         ## Sort the UMI count files by gene/primer coordinates
-        cmd1 = """ cat {count_file}| awk 'NR == 1; NR > 1 {{print $0 | "sort --ignore-case -V -k1,1 -k2,2 -k3,3"}}' > {temp}"""
+        cmd1 = """ cat {count_file}| awk 'NR == 1; NR > 1 {{print $0 | "sort --ignore-case -V -k4,4 -k5,5 -k6,6"}}' > {temp}"""
         cmd2 = """ cp {temp} {count_file} """
         
-        run_cmd(cmd1.format(count_file=self.combined_count_file_primers,temp='temp.txt'))
-        run_cmd(cmd2.format(temp='temp.txt',count_file=self.combined_count_file_primers))
+	if config().seqtype.upper() != 'WTS':
+            run_cmd(cmd1.format(count_file=self.combined_count_file_primers,temp='temp.txt'))
+            run_cmd(cmd2.format(temp='temp.txt',count_file=self.combined_count_file_primers))
         run_cmd(cmd1.format(count_file=self.combined_count_file,temp='temp.txt'))
-        print cmd1.format(count_file=self.combined_count_file,temp='temp.txt')
         run_cmd(cmd2.format(temp='temp.txt',count_file=self.combined_count_file))
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
@@ -630,3 +632,63 @@ class ClusteringAnalysis(luigi.Task):
         '''
         return luigi.LocalTarget(self.verification_file)
 
+
+class WriteExcelSheet(luigi.Task):
+    ''' Task for writing the metric and count files in a Excel workbook for the low input case
+    '''
+    # Parameters
+    output_dir = luigi.Parameter()
+    samples_cfg = luigi.Parameter()
+    cell_index_file = luigi.Parameter()
+    vector_sequence = luigi.Parameter()
+    isolator = luigi.Parameter()
+    mt_len = luigi.IntParameter()
+    num_cores = luigi.IntParameter()
+    num_errors = luigi.IntParameter()
+
+    def __init__(self,*args,**kwargs):
+        ''' Class constructor
+        '''
+        super(WriteExcelSheet,self).__init__(*args,**kwargs)
+	self.runid = os.path.basename(self.output_dir)        
+        self.combined_count_file = os.path.join(self.output_dir,'{}.umi.counts.genes.txt'.format(self.runid))
+        self.combined_count_file_primers = os.path.join(self.output_dir,'{}.umi.counts.primers.txt'.format(self.runid))
+        self.combined_cell_metrics_file = os.path.join(self.output_dir,'{}.cell_index.metrics.txt'.format(self.runid))
+        self.combined_sample_metrics_file = os.path.join(self.output_dir,'{}.sample_index.metrics.txt'.format(self.runid))
+        self.combined_workbook = os.path.join(self.output_dir,'{}.singlecell.results.xlsx'.format(self.runid))
+        ## The verification file for this task
+        self.target_dir = os.path.join(self.output_dir,'targets')
+        if not os.path.exists(self.target_dir):
+            os.makedirs(self.target_dir)
+        self.verification_file = os.path.join(self.target_dir,
+                                              self.__class__.__name__+
+                                              '.verification.txt')
+        if config().seqtype.upper() == 'WTS':
+            self.files_to_write = [self.combined_sample_metrics_file,self.combined_cell_metrics_file,self.combined_count_file]
+        else:
+            self.files_to_write = [self.combined_sample_metrics_file,self.combined_cell_metrics_file,self.combined_count_file,self.combined_count_file_primers]
+        
+
+    def requires(self):
+        ''' Task dependency is the joining of the count/metric files
+        '''
+        return self.clone(CombineSamples)
+
+    def run(self):
+        ''' Work to be done here is writing the excel workbook
+        '''
+        logger.info("Starting Task: {x} {y}".format(x='WriteExcelSheet',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))        
+        if config().catalog_number == "N/A":
+            catalog_number = None
+        else:
+            catalog_number = config().catalog_number
+        write_excel_workbook(self.files_to_write,self.combined_workbook,catalog_number)
+        with open(self.verification_file,'w') as IN:
+            IN.write('done\n')
+        logger.info("Finished Task: {x} {y}".format(x='WriteExcelSheet',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+
+        
+    def output(self):
+        ''' The output from this task is to check the verification file
+        '''
+        return luigi.LocalTarget(self.verification_file)

@@ -1,9 +1,14 @@
 import regex
 import logging
+import RemoteException
 
 def overlap(x1,x2,y1,y2):
     ''' Compute overlap between two coordinates
     '''
+    if y1 > y2: ## Swap for genes on -ve strand
+        temp = y2
+        y2 = y1
+        y1 = temp        
     return max(0,min(x2,y2) - max(x1,y1))
 
 def return_read_end_pos(read_pos,cigar,flag=False,pattern=regex.compile('([0-9]+)([A-Z])'),cigars_to_ignore=['I','S','H','P']):
@@ -20,6 +25,7 @@ def return_read_end_pos(read_pos,cigar,flag=False,pattern=regex.compile('([0-9]+
         bases+=int(num_bases)
     return read_pos+bases
 
+@RemoteException.showError
 def find_gene(gene_tree,read_tup):
     ''' Annotate the given read with a gene
 
@@ -36,9 +42,10 @@ def find_gene(gene_tree,read_tup):
         logger.info("{read_id}: Unmapped".format(read_id=read_id))
         return ('Unmapped',mt,0,nh)
     if 'ERCC' in read_chrom:
+        read_end = return_read_end_pos(read_pos,read_cigar)
         result = gene_tree[read_chrom]["+"].search(read_pos,read_end)
         if result:
-            return (result.data,mt,0,nh)            
+            return (next(iter(result)).data,mt,0,nh)            
             logger.info("{read_id}: Mapped to {ercc}".format(read_id=read_id,ercc=read_chrom))
         else:
             return ('Unknown_Chrom',mt,0,nh)
@@ -51,9 +58,9 @@ def find_gene(gene_tree,read_tup):
     ## Search the interval tree
     read_end = return_read_end_pos(read_pos,read_cigar)
     if read_is_reverse:
-        res = gene_tree[read_chrom]['-'].search(read_pos,read_end)
+        res = gene_tree[read_chrom]['-1'].search(read_pos,read_end)
     else:
-        res = gene_tree[read_chrom]['+'].search(read_pos,read_end)
+        res = gene_tree[read_chrom]['1'].search(read_pos,read_end)
 
     if res: ## If the search was successful
         num_hits = len(res)
@@ -63,51 +70,49 @@ def find_gene(gene_tree,read_tup):
             ## Choose the closest 3' location gene
             prev = None
             for result in res:
-                if not prev:
-                    ## Check overlap
-                    prev_o = float(overlap(read_pos,read_end,result.data[0],result.data[1]))/read_len
+                three_prime = result.data[4]
+                five_prime = result.data[5]
+                gene = result.data[1]
+                if not prev: ## Checking first hit
+                    ## Check overlap                    
+                    prev_o = float(overlap(read_pos,read_end,five_prime,three_prime))/read_len
                     if prev_o > overlap_threshold:
                         prev = result.data
-                        logger.info("{read_id}: Picked {gene} as default".format(read_id=read_id,gene=prev[4]))
+                        logger.info("{read_id}: Picked {gene} as default".format(read_id=read_id,gene=gene))
                     else:
-                        logger.info("{read_id}: {gene} had {overlap} overlap, failed overlap criteria".format(read_id=read_id,overlap=prev_o,gene=result.data[4]))
-                else:
-                    o = float(overlap(read_pos,read_end,result.data[0],result.data[1]))/read_len
+                        logger.info("{read_id}: {gene} had {overlap} overlap, failed overlap criteria".format(read_id=read_id,overlap=prev_o,gene=gene))
+                        
+                else: ## Check other hits
+                    o = float(overlap(read_pos,read_end,five_prime,three_prime))/read_len
                     if o < overlap_threshold:
                         continue
-                    if read_is_reverse:
-                        three_prime_prev = prev[0]
-                        three_prime_new = result.data[0]
-                        three_prime_read = read_pos
-                    else:
-                        three_prime_prev = prev[1]
-                        three_prime_new = result.data[1]
-                        three_prime_read = read_end
-
+                    
+                    three_prime_prev = prev[4]                        
+                    three_prime_read = read_pos                   
                     diff_three_prime_prev = abs(three_prime_prev - three_prime_read)
-                    diff_three_prime_new = abs(three_prime_new - three_prime_read)
+                    diff_three_prime_current = abs(three_prime - three_prime_read)
 
-                    if diff_three_prime_prev == diff_three_prime_new:
+                    if diff_three_prime_prev == diff_three_prime_current:
                         if o < prev_o: ## Look at overlaps
-                            logger.info("{read_id}: Picked {gene1}: 3_prime_diff={diff1} over {gene2}: 3_prime_diff={diff2} because of greater overlap".format(read_id=read_id,gene1=result.data[4],diff1=diff_three_prime_new,gene2=prev[4],diff2=diff_three_prime_prev))
+                            logger.info("{read_id}: Picked {gene1}: 3_prime_diff={diff1} over {gene2}: 3_prime_diff={diff2} because of greater overlap".format(read_id=read_id,gene1=gene,diff1=diff_three_prime_current,gene2=prev[1],diff2=diff_three_prime_prev))
                             prev_o = o
                             prev = result.data
-                    elif diff_three_prime_prev > diff_three_prime_new:
-                        logger.info("{read_id}: Picked {gene1}: 3_prime_diff={diff1} over {gene2}: 3_prime_diff={diff2}".format(read_id=read_id,gene1=result.data[4],diff1=diff_three_prime_new,gene2=prev[4],diff2=diff_three_prime_prev))
+                    elif diff_three_prime_prev > diff_three_prime_current:
+                        logger.info("{read_id}: Picked {gene1}: 3_prime_diff={diff1} over {gene2}: 3_prime_diff={diff2}".format(read_id=read_id,gene1=gene,diff1=diff_three_prime_current,gene2=prev[1],diff2=diff_three_prime_prev))
                         prev = result.data
                         prev_o = o
             if prev:
-                logger.info("{read_id}: Picked {gene1}".format(read_id=read_id,gene1=prev[4]))
+                logger.info("{read_id}: Picked {gene1}".format(read_id=read_id,gene1=prev[1]))
                 return (prev,mt,1,nh)
             else:
                 logger.info("{read_id}: No genes matched overlap criteria".format(read_id=read_id))
                 return ('Unknown',mt,0,nh)
         else:
             result = res.pop()
-            logger.info("{read_id}: intersected with {gene} only".format(read_id=read_id,gene=result.data[4]))
-            o = float(overlap(read_pos,read_end,result.data[0],result.data[1]))/read_len
+            logger.info("{read_id}: intersected with {gene} only".format(read_id=read_id,gene=result.data[1]))
+            o = float(overlap(read_pos,read_end,result.data[5],result.data[4]))/read_len
             if o < overlap_threshold:
-                logger.info("{read_id}: {gene} failed overlap criteria".format(read_id=read_id,gene=result.data[4]))
+                logger.info("{read_id}: {gene} failed overlap criteria".format(read_id=read_id,gene=result.data[1]))
                 return ('Unknown',mt,0,nh)
             else:
                 return (result.data,mt,1,nh)
