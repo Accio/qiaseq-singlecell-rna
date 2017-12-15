@@ -35,9 +35,9 @@ def write_excel_workbook(files_to_write,output_excel,catalog_number=None):
             sheet_name = "umis.genes."+catalog_number
         elif infile.find("primer") != -1: ## Primer count file
             sheet_name = "umis.primers."+catalog_number
-        elif infile.find(".metrics.by_sample_index"): ## Sample Index metrics
+        elif infile.find(".metrics.by_sample_index") != -1: ## Sample Index metrics
             sheet_name = "metrics.by_sample_index"
-        elif infile.find(".metrics.by_cell_index"): ## Cell Index metrics
+        elif infile.find(".metrics.by_cell_index") != -1: ## Cell Index metrics
             sheet_name = "metrics.by_cell_index"
         else:
             raise Exception("Invalid file name encountered !")
