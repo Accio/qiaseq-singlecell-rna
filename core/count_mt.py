@@ -256,7 +256,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
                     umi_count_gene = len(umi_counter_gene[gene])
                 else:
                     umi_count_gene = 0
-                    total_UMIs+=umi_count                
+                total_UMIs+=umi_count                
                 OUT2.write(ensembl_id+"\t"+gene+"\t"+strand+"\t"+str(chrom)+"\t"+str(five_prime)+"\t"+str(three_prime)+"\t"+str(umi_count_gene)+"\n")
                 seen.append(gene)
                 
