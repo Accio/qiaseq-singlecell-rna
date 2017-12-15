@@ -109,7 +109,7 @@ def write_metrics_sample(sample_metrics,outfile,wts):
     reads_dropped_demultiplexing = (
         int(sample_metrics['reads dropped, cell id not extracted']) + \
         int(sample_metrics['reads dropped, cell id not matching oligo']) + \
-        int(sample_metrics['reads dropped, less than 25 b.p'])       
+        int(sample_metrics['reads dropped, less than 25 bp'])       
     )
     if wts:
         reads_dropped_counting = (
@@ -127,7 +127,7 @@ def write_metrics_sample(sample_metrics,outfile,wts):
             int(sample_metrics['reads dropped, not mapped to genome']) + \
             int(sample_metrics['reads dropped, off target']) + \
             int(sample_metrics['reads dropped, primer not identified at read start']) + \
-            int(sample_metrics['reads dropped, less than 25 b.p endogenous seq after primer'])
+            int(sample_metrics['reads dropped, less than 25 bp endogenous seq after primer'])
         )
         reads_used = (
             int(sample_metrics['reads used, aligned to genome, multiple loci']) + \

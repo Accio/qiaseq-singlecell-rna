@@ -250,13 +250,13 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
                 umi_count = len(umi_counter[primer])
             else:
                 umi_count = 0
-            OUT1.write(seq+"\t"+gene+"\t"+strand+"\t"+str(chrom)+"\t"+str(five_prime)+"\t"+str(three_prime)+"\t"+str(umi_count)+"\n")
-            if gene in umi_counter_gene:
-                umi_count_gene = len(umi_counter_gene[gene])
-            else:
-                umi_count_gene = 0
-            total_UMIs+=umi_count
+            OUT1.write(ensembl_id+"\t"+strand+"\t"+str(chrom)+"\t"+str(five_prime)+"\t"+str(three_prime)+"\t"+seq+"\t"+str(umi_count)+"\n")
             if gene not in seen: ## Genes will be repeated for multiple primers, since results are already accumulated , only write once for a gene
+                if gene in umi_counter_gene:
+                    umi_count_gene = len(umi_counter_gene[gene])
+                else:
+                    umi_count_gene = 0
+                    total_UMIs+=umi_count                
                 OUT2.write(ensembl_id+"\t"+gene+"\t"+strand+"\t"+str(chrom)+"\t"+str(five_prime)+"\t"+str(three_prime)+"\t"+str(umi_count_gene)+"\n")
                 seen.append(gene)
                 
@@ -276,7 +276,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
         ('reads dropped, not mapped to genome',unmapped),
         ('reads dropped, off target',primer_offtarget+primer_miss),
         ('reads dropped, primer not identified at read start',primer_mismatch),
-        ('reads dropped, less than 25 b.p endogenous seq after primer',endo_seq_miss),
+        ('reads dropped, less than 25 bp endogenous seq after primer',endo_seq_miss),
         ('reads used, aligned to genome, multiple loci',num_reads_used_genome_multimapped),
         ('reads used, aligned to genome, unique loci',num_reads_used_genome_unique),
         ('reads used, aligned to ERCC, multiple loci',ercc_used_multimapped),

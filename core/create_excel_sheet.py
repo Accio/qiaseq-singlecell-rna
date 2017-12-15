@@ -30,11 +30,17 @@ def write_excel_workbook(files_to_write,output_excel,catalog_number=None):
     :param str catalog_number: specify a catalog number, if applicable. The gene count excel sheet will be named so
     '''
     workbook = Workbook(output_excel)
-    for infile in files_to_write:        
+    for infile in files_to_write:
         if infile.find("gene") != -1 and catalog_number: ## Gene count file with a catalog number
-            sheet_name = catalog_number
+            sheet_name = "umis.genes."+catalog_number
+        elif infile.find("primer") != -1: ## Primer count file
+            sheet_name = "umis.primers."+catalog_number
+        elif infile.find(".metrics.by_sample_index"): ## Sample Index metrics
+            sheet_name = "metrics.by_sample_index"
+        elif infile.find(".metrics.by_cell_index"): ## Cell Index metrics
+            sheet_name = "metrics.by_cell_index"
         else:
-            sheet_name = os.path.basename(infile.rstrip("/"))
+            raise Exception("Invalid file name encountered !")
         worksheet = workbook.add_worksheet(sheet_name)
         i=0
         for row in file_reader(infile):
