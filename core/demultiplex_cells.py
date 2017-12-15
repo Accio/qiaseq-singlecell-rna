@@ -269,7 +269,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
         [('reads total',num_reads),
          ('reads dropped, cell id not extracted',num_reads - reads_to_demultiplex),
          ('reads dropped, cell id not matching oligo',reads_dropped_cellindex),
-         ('reads dropped, less than 25 b.p',reads_dropped_size)
+         ('reads dropped, less than 25 bp',reads_dropped_size)
         ]
     )
     write_metrics(metric_file,metric_dict,metric_dict.keys())
