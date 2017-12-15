@@ -650,11 +650,11 @@ class WriteExcelSheet(luigi.Task):
         ''' Class constructor
         '''
         super(WriteExcelSheet,self).__init__(*args,**kwargs)
-	self.runid = os.path.basename(self.output_dir)        
-        self.combined_count_file = os.path.join(self.output_dir,'{}.umi.counts.genes.txt'.format(self.runid))
-        self.combined_count_file_primers = os.path.join(self.output_dir,'{}.umi.counts.primers.txt'.format(self.runid))
-        self.combined_cell_metrics_file = os.path.join(self.output_dir,'{}.cell_index.metrics.txt'.format(self.runid))
-        self.combined_sample_metrics_file = os.path.join(self.output_dir,'{}.sample_index.metrics.txt'.format(self.runid))
+	self.runid = os.path.basename(self.output_dir)
+        self.combined_count_file = os.path.join(self.output_dir,'{}.umi_counts.gene.txt'.format(self.runid))
+        self.combined_count_file_primers = os.path.join(self.output_dir,'{runid}.umi_counts.primer.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))        
+        self.combined_cell_metrics_file = os.path.join(self.output_dir,'{}.metrics.by_cell_index.txt'.format(self.runid))
+        self.combined_sample_metrics_file = os.path.join(self.output_dir,'{}.metrics.by_sample_index.txt'.format(self.runid))	
         self.combined_workbook = os.path.join(self.output_dir,'QIAseqUltraplexRNA_{}.xlsx'.format(self.runid))
         ## The verification file for this task
         self.target_dir = os.path.join(self.output_dir,'targets')
