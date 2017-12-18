@@ -141,7 +141,6 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput):
                 header = 'Samples\t'+'\t'.join(sample_metrics[metric].keys())
                 OUT.write(header+'\n')
                 i+=1
-                continue
             out = metric
             for sample in sample_metrics[metric]:
                 out = out+'\t'+float_to_string(round(sample_metrics[metric][sample],2))
