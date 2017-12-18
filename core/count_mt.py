@@ -227,6 +227,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
                         endo_seq_miss_ercc+=1
                     endo_seq_miss+=1
             else:
+                gene = primer_info[primer][2]
                 if nh > 1:
                     if gene.startswith('ERCC-'):                        
                         ercc_used_multimapped+=1
@@ -236,7 +237,6 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
                     if gene.startswith('ERCC-'):
                         ercc_used_unique+=1
                 umi_counter[primer][umi]+=1
-                gene = primer_info[primer][2]
                 umi_counter_gene[gene][umi]+=1
         i+=1
     p.close()
