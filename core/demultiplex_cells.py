@@ -21,8 +21,16 @@ upon the cell index, incorporate the barcode tag to the ReadID
 for downstream anaylsis.
 """
 
-## Contains tuple of reads to write
+## To do:
+## Try to avoid globals
+
+## Some globals
 out_fastq_queue = Queue()
+reads_dropped_cellindex = 0
+reads_dropped_size = 0
+reads_to_demultiplex = 0
+num_reads = 0
+cell_metrics = collections.defaultdict(lambda:collections.defaultdict(int))
 
 def grouper(iterable,n=750000):
     '''
@@ -219,6 +227,12 @@ def write_fastq(FASTQS,q):
     :param fastq_loc: full path to the fastq file to write to
     :return: nothing
     '''
+    global reads_dropped_cellindex
+    global reads_dropped_size
+    global reads_to_demultiplex
+    global num_reads
+    global cell_metrics
+    
     while True:
         cell_index,read_info,flag = q.get()
         num_reads+=1        
@@ -253,8 +267,12 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
     :param bool wts: whether this is for wts
     :return: nothing
     '''
-
     ## Initialize variables
+    global reads_dropped_cellindex
+    global reads_dropped_size
+    global reads_to_demultiplex
+    global num_reads
+    global cell_metrics    
     FASTQS= {}
     METRICS = {}
     if wts:
