@@ -4,6 +4,12 @@ import StringIO
 
 from copy_reg import dispatch_table, pickle
 
+
+'''
+Stolen from : https://gist.github.com/niccokunzmann/5763860/
+Please see this wonderful thread on StackOverFlow : https://stackoverflow.com/questions/6728236/exception-thrown-in-multiprocessing-pool-not-detected
+'''
+
 def exc_info(hide_calls = 0):
     '''as sys.exc_info() but returns a remote exception object'''
     ErrorType, thrownError, traceback = sys.exc_info()
