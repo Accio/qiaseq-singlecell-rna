@@ -1,12 +1,18 @@
 import sys
 import gzip
 import io
+import itertools
 import os
 import errno
 import editdistance
 import collections
 import regex
 import re
+import multiprocessing
+from threading import Thread
+from Queue import Queue
+
+## Modules from this project
 from extract_multiplex_region import open_by_magic
 
 """
@@ -15,10 +21,23 @@ upon the cell index, incorporate the barcode tag to the ReadID
 for downstream anaylsis.
 """
 
-## To do :
-## 1. Improve runtime, currently takes a ~64 secs to multiplex and write fastqs
-## for a readset of size 2 million reads
+## Contains tuple of reads to write
+out_fastq_queue = Queue()
 
+def grouper(iterable,n=750000):
+    '''
+    Returns n chunks of an iterable
+
+    :param iterator iterable: The iterator to chop up
+    :param int n: the chunks to group the iterator into
+    :yields: iterator , i.e. the n1, n2, ... n chunks of the iterable
+    '''
+    it = iter(iterable)
+    while True:
+        chunk = tuple(itertools.islice(it,n))
+        if not chunk:
+            return
+        yield chunk
 
 def benchmark(func):
     '''
@@ -57,15 +76,18 @@ def trim_read(read,seq_pattern):
     else:
         return (read,0)
 
-def iterate_fastq(fastq):
+def iterate_fastq(fastq,chunks=1000000):
     '''
     Read a fastq file and return the 4 lines as a list
     '''
+    with open_by_magic(fastq,buffered=True) as IN:
+        for fastq_lines in grouper(IN,chunks):
+            to_yield = []            
+            for i in xrange(0,len(fastq_lines),4):
+                to_yield.append((fastq_lines[i].rstrip('\n'),fastq_lines[i+1].rstrip('\n'),
+                                 fastq_lines[i+2].rstrip('\n'),fastq_lines[i+3].rstrip('\n')))
 
-    with open_by_magic(fastq) as IN:
-        while True:
-            yield [IN.next().rstrip('\n'),IN.next().rstrip('\n'),
-                   IN.next().rstrip('\n'),IN.next().rstrip('\n')]
+            yield to_yield
 
 def read_multiplex_file(multiplex_file):
     '''
@@ -166,18 +188,56 @@ def write_metrics(metric_file,metric_dict,metrics):
             else:
                 val = 0        
             OUT.write('{metric}: {value}\n'.format(metric=key,value=val))
-
-
-def write_fastq(read_info,OUT):
+            
+def verify_cell_index(polyA_motif,cell_indices,read_id_hash,read_info):
+    ''' Verify if the cell index is valid
+    '''
+    read_id,seq,p,qual = read_info
+    key = read_id.split()[0]
+    if key in read_id_hash:
+        cell_index,umi = read_id_hash[key]
+        ret = match_cell_index(cell_indices,cell_index,0)
+        if ret == True:
+            new_read_id = key+":%s"%umi
+            trimmed_seq,trimming_index = trim_read(seq,polyA_motif)
+            if trimming_index: ## Non zero trimming index
+                qual = qual[0:trimming_index]                
+            if len(trimmed_seq) < 25: ## Reads < 25 b.p
+                flag = 010                
+            else:
+                flag = 100
+                read_info = new_read_id+'\n'+trimmed_seq+'\n'+p+qual
+        else:
+            flag = 001
+            
+    return (cell_index,read_info,flag)
+                
+def write_fastq(FASTQS,q):
     ''' Write a fastq file
 
     :param str read_info: a list whose elements are the 4 lines of a fastq
     :param fastq_loc: full path to the fastq file to write to
     :return: nothing
     '''
+    while True:
+        cell_index,read_info,flag = q.get()
+        num_reads+=1        
+        ## Accumulate metrics               
+        if flag == 001: ## Not a valid cell id
+            reads_dropped_cellindex+=1
+        else:
+            if flag == 100:
+                reads_to_demultiplex+=1
+                ## Write to the cell specific fastq file
+                OUT = FASTQS[cell_index]            
+                OUT.write(read_info+'\n')                
+                cell_metrics[cell_index]['after_qc_reads']+=1                
+            if flag == 010: ## Valid cell id , read too short
+                reads_dropped_size+=1                
+            cell_metrics[cell_index]['reads total']+=1  
+        q.task_done()
 
-    #out = '\n'.join(read_info)
-    OUT.write(read_info+'\n')
+    return (num_reads,reads_to_demultiplex,reads_dropped_cellindex,reads_dropped_size,cell_metrics)
 
 @benchmark
 def create_cell_fastqs(base_dir,metric_file,cell_index_file,
@@ -197,10 +257,6 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
     ## Initialize variables
     FASTQS= {}
     METRICS = {}
-    num_reads=0
-    reads_demultiplexed=0
-    reads_dropped_cellindex=0
-    reads_dropped_size = 0
     if wts:
         polyA_motif = re.compile(r'^([ACGTN]*?[CGTN])([A]{9,}[ACGNT]*$)')
     else:
@@ -227,38 +283,22 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
                                          '/cell_'+str(cell_num)+'_demultiplex_stats.txt')
         FASTQS[cell_index] = gzip.open(fastq,'w')
         METRICS[cell_index] = metric
-    ## Store metrics for each cell
-    cell_metrics = collections.defaultdict(lambda:collections.defaultdict(int))
 
+    ## Start a dedicated writer thread
+    writer_worker = Thread(target=write_fastq,args=(FASTQS,out_fastq_queue,))
+    writer_worker.setDaemon(True)
+    writer_worker.start()
+    
     ## Iterate over the R1 fastq , check if the cell index is valid,
     ## 3' polyA tail and write as a fastq file
-    for read_id,seq,p,qual in iterate_fastq(read_file1):
-        key = read_id.split()[0]
-        if key in read_id_hash:
-            cell_index,mt = read_id_hash[key]
-            ret = match_cell_index(cell_indices,cell_index,0)
-            if ret == True:
-                new_read_id = key+":%s"%mt ## CellIndex can be added here as well
-                trimmed_seq,trimming_index = trim_read(seq,polyA_motif)
-                if trimming_index: ## Non zero trimming index
-                    qual = qual[0:trimming_index]
-                if len(trimmed_seq) < 25: ## Drop reads below 25 b.p
-                    reads_dropped_size+=1
-                    num_reads+=1
-                    cell_metrics[cell_index]['reads total']+=1
-                    continue
-                read_info = new_read_id+'\n'+trimmed_seq+'\n'+p+'\n'+qual
-                write_fastq(read_info,FASTQS[cell_index])
-                cell_metrics[cell_index]['reads total']+=1
-                cell_metrics[cell_index]['after_qc_reads']+=1
-                reads_demultiplexed+=1
-            else:
-                reads_dropped_cellindex+=1
-        num_reads+=1
+    func = partial(polyA_motif,verify_cell_index,cell_indices,read_id_hash)
+    for chunk in iterate_fastq(read_file1):
+        results = p.map(func,chunk)
+        out_fastq_queue.add(results)
 
+    out_fastq_queue.join()
     for cell in FASTQS:
         FASTQS[cell].close()
-
     ## Write out the metrics
     ## 1. Per cell level
     metrics_to_write = ['reads total','after_qc_reads']
@@ -272,7 +312,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
          ('reads dropped, less than 25 bp',reads_dropped_size)
         ]
     )
-    write_metrics(metric_file,metric_dict,metric_dict.keys())
+    write_metrics(metric_file,metric_dict,metric_dict.keys())      
 
 if __name__ == '__main__':
     create_cell_fastqs(sys.argv[1],sys.argv[2],sys.argv[3],sys.argv[4],sys.argv[5])
