@@ -27,13 +27,14 @@ of error in the vector, cell_id and mt regions
 """
 
 
-def open_by_magic(filename):
+def open_by_magic(filename,buffered=True):
     '''
     Adapted from : http://stackoverflow.com/questions/18367511/how-do-i-automatically-handle-decompression-when-reading-a-file-in-python
     with modifications
     Uses the initial bytes of a file to detect the file compression.
 
     :param str filename: path to the input file
+    :param bool buffered: Whether to return a buffered handle
     :return: the appropriate file handle for reading
     :rtype: file object
     '''
@@ -45,7 +46,10 @@ def open_by_magic(filename):
         file_start = f.read(max_len)
         for magic,fn in magic_dict.items():
             if file_start.startswith(magic):
-                return io.BufferedReader(fn(filename))
+                if buffered:
+                    return io.BufferedReader(fn(filename))
+                else:
+                    return fn(filename)
             return open(filename,'r') ## Otherwise just a regular file
 
 def iterate_fastq(read2_fastq):
