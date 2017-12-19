@@ -11,10 +11,12 @@ import re
 import multiprocessing
 from threading import Thread
 from Queue import Queue
+from functools import partial
 
 ## Modules from this project
 from extract_multiplex_region import open_by_magic
-
+import RemoteException
+    
 """
 Demultiplex the R1 fastq file into individual cells based
 upon the cell index, incorporate the barcode tag to the ReadID
@@ -84,7 +86,7 @@ def trim_read(read,seq_pattern):
     else:
         return (read,0)
 
-def iterate_fastq(fastq,chunks=1000000):
+def iterate_fastq(fastq,chunks=100000):
     '''
     Read a fastq file and return the 4 lines as a list
     '''
@@ -196,12 +198,16 @@ def write_metrics(metric_file,metric_dict,metrics):
             else:
                 val = 0        
             OUT.write('{metric}: {value}\n'.format(metric=key,value=val))
-            
+
+@RemoteException.showError            
 def verify_cell_index(polyA_motif,cell_indices,read_id_hash,read_info):
     ''' Verify if the cell index is valid
     '''
     read_id,seq,p,qual = read_info
     key = read_id.split()[0]
+    cell_index = None
+    read_info = None
+    flag = None
     if key in read_id_hash:
         cell_index,umi = read_id_hash[key]
         ret = match_cell_index(cell_indices,cell_index,0)
@@ -214,9 +220,10 @@ def verify_cell_index(polyA_motif,cell_indices,read_id_hash,read_info):
                 flag = 010                
             else:
                 flag = 100
-                read_info = new_read_id+'\n'+trimmed_seq+'\n'+p+qual
-        else:
+                read_info = new_read_id+'\n'+trimmed_seq+'\n'+p+"\n"+qual
+        else:     
             flag = 001
+            
             
     return (cell_index,read_info,flag)
                 
@@ -235,20 +242,21 @@ def write_fastq(FASTQS,q):
     
     while True:
         cell_index,read_info,flag = q.get()
-        num_reads+=1        
-        ## Accumulate metrics               
-        if flag == 001: ## Not a valid cell id
-            reads_dropped_cellindex+=1
-        else:
-            if flag == 100:
-                reads_to_demultiplex+=1
-                ## Write to the cell specific fastq file
-                OUT = FASTQS[cell_index]            
-                OUT.write(read_info+'\n')                
-                cell_metrics[cell_index]['after_qc_reads']+=1                
-            if flag == 010: ## Valid cell id , read too short
-                reads_dropped_size+=1                
-            cell_metrics[cell_index]['reads total']+=1  
+        num_reads+=1
+        if flag != None:
+            ## Accumulate metrics               
+            if flag == 001: ## Not a valid cell id
+                reads_dropped_cellindex+=1
+            else:
+                if flag == 100:
+                    reads_to_demultiplex+=1
+                    ## Write to the cell specific fastq file
+                    OUT = FASTQS[cell_index]            
+                    OUT.write(read_info+'\n')                
+                    cell_metrics[cell_index]['after_qc_reads']+=1                
+                if flag == 010: ## Valid cell id , read too short
+                    reads_dropped_size+=1                
+                cell_metrics[cell_index]['reads total']+=1  
         q.task_done()
 
     return (num_reads,reads_to_demultiplex,reads_dropped_cellindex,reads_dropped_size,cell_metrics)
@@ -309,10 +317,11 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
     
     ## Iterate over the R1 fastq , check if the cell index is valid,
     ## 3' polyA tail and write as a fastq file
-    func = partial(polyA_motif,verify_cell_index,cell_indices,read_id_hash)
+    p = multiprocessing.Pool(12)
+    func = partial(verify_cell_index,polyA_motif,cell_indices,read_id_hash)
     for chunk in iterate_fastq(read_file1):
         results = p.map(func,chunk)
-        out_fastq_queue.add(results)
+        out_fastq_queue.put(results)
 
     out_fastq_queue.join()
     for cell in FASTQS:
