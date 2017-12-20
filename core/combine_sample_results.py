@@ -128,7 +128,7 @@ def check_metric_counts(sample_metrics,cell_metrics,UMI_gene_count):
     :param dict cell_metrics: dict containing metrics aggregated over all cell indices
     :param int UMI_gene_count: total UMI count over all genes
     '''
-    assert sample_metrics['reads used'] ==  cell_metrics['reads used'],"Read accounting failed !"
+    assert sample_metrics['reads used'] ==  cell_metrics['reads used'],"{sample} != {cell} , Read accounting failed !".format(sample=sample_metrics['reads used'],cell=cell_metrics['reads used']) 
     assert sample_metrics['total UMIs'] == cell_metrics['UMIs'],"UMI accounting failed !"
     assert sample_metrics['total UMIs'] == UMI_gene_count,"UMI accounting failed !"    
 
@@ -145,18 +145,22 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
     :rtype dict
     '''
     sample_metrics = MyOrderedDict()
-    dropped_metrics = MyOrderedDict()
+    dropped_metrics = defaultdict(lambda:defaultdict(int))
     new_metric = 'reads dropped, cell has no genes with more than 5 UMIs'    
     ## Get UMIs and reads used from the cells which were dropped
     for cell in cells_dropped:
-        sample_index,cell_index = cell.split('_')
-        read_stats_file = glob.glob(os.path.join(output_dir,'{sample_index}/Cell{cell_index}_*/read_stats.txt'))
+        if len(cell.split('_')) == 3:
+            sample_index = '_'.join(cell.split('_')[0:2])
+            cell_index = cell.split('_')[-1]
+        else:    
+            sample_index,cell_index = cell.split('_')
+        read_stats_file = glob.glob(os.path.join(output_dir,'{sample_index}/Cell{cell_index}_*/read_stats.txt'.format(sample_index=sample_index,cell_index=cell_index)))[0]
         cell_check = os.path.dirname(read_stats_file).split('/')[-1].split('_')[0].strip('Cell')
         ## Check to make sure we got the correct file
-        assert cell_check == cell, "Incorrect matching of dropped CellIndex : {}".format(cell+" to "+cell_check)
+        assert cell_check == cell_index, "Incorrect matching of dropped CellIndex : {}".format(cell+" to "+cell_check)
         reads_dropped_less_5_UMI=0
         UMIs_dropped=0
-        with open(f,'r') as IN:
+        with open(read_stats_file,'r') as IN:
             for line in IN:
                 metric,val = line.strip('\n').split(':')
                 if metric.startswith('reads used,') or metric == 'total UMIs':
@@ -188,7 +192,7 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
             for sample in sample_metrics[metric]:
                 if metric.startswith('reads used,'):
                     return_metrics['reads used']+=int(sample_metrics[metric][sample])
-                elif metric.starswith('total UMIs'):
+                elif metric.startswith('total UMIs'):
                     return_metrics['total UMIs']+=int(sample_metrics[metric][sample])                   
                 out = out+'\t'+float_to_string(round(sample_metrics[metric][sample],2))
             OUT.write(out+'\n')
@@ -229,8 +233,8 @@ def combine_cell_metrics(files_to_merge,outfile,is_lowinput,cells_to_restrict):
             out = cell            
             for metric in cell_metrics[cell]:
                 if metric.startswith('reads used,') or metric == 'UMIs':
-                    if metric.starswith('reads used,'):
-                        met = 'reads used,'
+                    if metric.startswith('reads used,'):
+                        met = 'reads used'
                     else:
                         met = 'UMIs'
                     return_metrics[met]+=int(cell_metrics[cell][metric])                    
@@ -308,8 +312,7 @@ def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
                     raise Exception("Cell not hashed for Gene/Primer : {cell}-{k}".format(cell=cell,k=key))
                     #out = out + '\t0'
                 else:
-                    out = out + '\t{}'.format(UMI[key][cell])
-                    sample_index,cell_index = cell.split('_')
+                    out = out + '\t{}'.format(UMI[key][cell])                    
                     total_UMIs+=int(UMI[key][cell])
             if write:        
                 OUT.write(out+'\n')                

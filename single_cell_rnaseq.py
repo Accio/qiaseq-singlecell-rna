@@ -55,6 +55,7 @@ class config(luigi.Config):
     ercc_bed = luigi.Parameter(description="ERCC bed file with coordinate information")
     is_low_input = luigi.Parameter(description="Whether the sequencing protocol was for a low input application")
     catalog_number = luigi.Parameter(description="The catalog number for this primer pool")
+    species = luigi.Parameter(description="The species name")
     
 class MyExtTask(luigi.ExternalTask):
     ''' Checks whether the file specified exists on disk
@@ -685,7 +686,7 @@ class WriteExcelSheet(luigi.Task):
             catalog_number = None
         else:
             catalog_number = config().catalog_number
-        write_excel_workbook(self.files_to_write,self.combined_workbook,catalog_number)
+        write_excel_workbook(self.files_to_write,self.combined_workbook,catalog_number,config().species)
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
         logger.info("Finished Task: {x} {y}".format(x='WriteExcelSheet',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
