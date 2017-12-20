@@ -196,7 +196,7 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
                     return_metrics['total UMIs']+=int(sample_metrics[metric][sample])                   
                 out = out+'\t'+float_to_string(round(sample_metrics[metric][sample],2))
             OUT.write(out+'\n')
-            if metric == 'reads dropped, less than 25 bp endogenous seq after primer':
+            if metric in ['reads dropped, less than 25 bp endogenous seq after primer','reads dropped, aligned to genome, multiple loci']:
                 ## Add new metric for cells dropped                
                 out = new_metric
                 for sample in dropped_metrics[new_metric]:
