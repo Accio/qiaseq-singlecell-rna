@@ -130,7 +130,7 @@ def create_gene_tree(annotation_gtf,ercc_bed,merge_coordinates=False):
     for gene in genes:
         for info in genes[gene]:
             start,end,chrom,strand,gene,ensembl_id = info
-            assert strand in ['-1','+1'],"Incorrect strand !"
+            assert strand in ['-1','1'],"Incorrect strand !"
             if strand == "1":
                 five_prime = start
                 three_prime = end
