@@ -121,17 +121,60 @@ def read_sample_metrics(metric_file,metric_dict):
             metric_dict[metric][sample] = float(val)
     return metric_dict
 
-def combine_sample_metrics(files_to_merge,outfile,is_lowinput):
+def check_metric_counts(sample_metrics,cell_metrics,UMI_gene_count):
+    ''' Sanity check to ensure metrics tally up between sampleindex and cellindex
+    level metrics
+    :param dict sample_metrics: dict containing metrics aggregated over all samples
+    :param dict cell_metrics: dict containing metrics aggregated over all cell indices
+    :param int UMI_gene_count: total UMI count over all genes
+    '''
+    assert sample_metrics['reads used'] ==  cell_metrics['reads used'],"Read accounting failed !"
+    assert sample_metrics['total UMIs'] == cell_metrics['UMIs'],"UMI accounting failed !"
+    assert sample_metrics['total UMIs'] == UMI_gene_count,"UMI accounting failed !"    
+
+def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,output_dir):
     ''' Combine metrics on the sample level similar to the cells
     :param list files_to_merge: the files to merge
     :param outfile: the output file to write to
     :param str: is_lowinput: Whether the protocol was for a low input application(1/0)
+    :param list cells_dropped: cells which were dropped
+    :param str output_dir: base output directory, use this for searching for the read statistic
+                           files for the cells dropped
+
+    :return dict containing some metrics aggregated over all samples to be used for read accounting
+    :rtype dict
     '''
     sample_metrics = MyOrderedDict()
+    dropped_metrics = MyOrderedDict()
+    new_metric = 'reads dropped, cell has no genes with more than 5 UMIs'    
+    ## Get UMIs and reads used from the cells which were dropped
+    for cell in cells_dropped:
+        sample_index,cell_index = cell.split('_')
+        read_stats_file = glob.glob(os.path.join(output_dir,'{sample_index}/Cell{cell_index}_*/read_stats.txt'))
+        cell_check = os.path.dirname(read_stats_file).split('/')[-1].split('_')[0].strip('Cell')
+        ## Check to make sure we got the correct file
+        assert cell_check == cell, "Incorrect matching of dropped CellIndex : {}".format(cell+" to "+cell_check)
+        reads_dropped_less_5_UMI=0
+        UMIs_dropped=0
+        with open(f,'r') as IN:
+            for line in IN:
+                metric,val = line.strip('\n').split(':')
+                if metric.startswith('reads used,') or metric == 'total UMIs':
+                    dropped_metrics[metric][sample_index]+=int(val)
+                    if metric.startswith('reads used,'):
+                        dropped_metrics[new_metric][sample_index]+=int(val)
+    
     ## Read metrics for each sample
     for sfile in files_to_merge:
         sample_metrics = read_sample_metrics(sfile,sample_metrics)
+    ## Update sample_metrics to account for cells dropped
+    for metric in dropped_metrics:
+        if metric!=new_metric:
+            for sample_index in dropped_metrics[metric]:
+                sample_metrics[metric][sample_index] = sample_metrics[metric][sample_index] - \
+                                                       dropped_metrics[metric][sample_index]
     ## Combine and write resultant output file
+    return_metrics = defaultdict(int)
     with open(outfile,'w') as OUT:
         i=0
         for metric in sample_metrics:
@@ -143,21 +186,37 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput):
                 i+=1
             out = metric
             for sample in sample_metrics[metric]:
+                if metric.startswith('reads used,'):
+                    return_metrics['reads used']+=int(sample_metrics[metric][sample])
+                elif metric.starswith('total UMIs'):
+                    return_metrics['total UMIs']+=int(sample_metrics[metric][sample])                   
                 out = out+'\t'+float_to_string(round(sample_metrics[metric][sample],2))
             OUT.write(out+'\n')
-        
+            if metric == 'reads dropped, less than 25 bp endogenous seq after primer':
+                ## Add new metric for cells dropped                
+                out = new_metric
+                for sample in dropped_metrics[new_metric]:
+                    out = out+'\t'+float_to_string(round(dropped_metrics[new_metric][sample],2))
+                OUT.write(out+'\n')                
+
+    return return_metrics
+
 def combine_cell_metrics(files_to_merge,outfile,is_lowinput,cells_to_restrict):
     ''' Combine cell metrics from different samples
     :param list files_to_merge: the files to merge
     :param str outfile: the outputfile to write the aggregate metrics
     :param str: is_lowinput: Whether the protocol was for a low input application(1/0)
     :param list cells_to_restrict: restrict cells to this list
+    
+    :return Dict containing aggregated metrics over all cells
+    :rtype dict
     '''    
     cell_metrics = MyOrderedDict()
     files_to_merge  = natsort.natsorted(files_to_merge)
     for cfile in files_to_merge:
         cell_metrics = read_cell_file(cfile,cell_metrics,is_lowinput)
 
+    return_metrics = defaultdict(int)
     with open(outfile,'w') as OUT:
         i=0
         for cell in cell_metrics:
@@ -169,8 +228,16 @@ def combine_cell_metrics(files_to_merge,outfile,is_lowinput,cells_to_restrict):
                 i+=1
             out = cell            
             for metric in cell_metrics[cell]:
+                if metric.startswith('reads used,') or metric == 'UMIs':
+                    if metric.starswith('reads used,'):
+                        met = 'reads used,'
+                    else:
+                        met = 'UMIs'
+                    return_metrics[met]+=int(cell_metrics[cell][metric])                    
                 out = out+'\t'+cell_metrics[cell][metric]
             OUT.write(out+'\n')
+            
+    return return_metrics
 
 def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
     ''' Function to combine cells from different samples into 1 file
@@ -189,12 +256,15 @@ def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
     :param list cells_to_restrict: Restrict cells to only this set when writing the primer count file
                                    This list is based on the criteria mentioned below
     
-    :return The cells written to the file , any cell with < 5 UMIs for each gene is not written
-    :rtype list
+    :return The cells written to the file , any cell with < 5 UMIs for each gene is not written 
+            cells which were dropped
+            sum of UMI count over all cells
+    :rtype tuple of (list,list,int) 
     ''' 
     i = 0
     UMI = defaultdict(lambda:defaultdict(int))
     header_cells = set()
+    cells_dropped = set()
     ## Iterate over the files to merge
     for f in files_to_merge:
         cell = os.path.dirname(f).split('/')[-1].split('_')[0].strip('Cell')
@@ -212,9 +282,13 @@ def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
             if not wts:
                 if cell_key in cells_to_restrict:
                     header_cells.add(cell_key)
+                else:
+                    cells_dropped.add(cell_key)
             else:
                 if any(e >= 5 for e in check_counts): ## Check to make sure the cell has atleast 5 UMI count for any 1 gene
-                    header_cells.add(cell_key)          
+                    header_cells.add(cell_key)
+                else:
+                    cells_dropped.add(cell_key)
     ## Create header
     if wts:
         header = "gene id\tgene\tstrand\tchrom\tloc 5' GRCh38\tloc 3' GRCh38\t{cells}\n"
@@ -223,6 +297,7 @@ def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
     temp = '\t'.join(list(header_cells))
     head = header.format(cells=temp)
     ## Print output
+    total_UMIs = 0
     with open(outfile,'w') as OUT:
         OUT.write(head)
         for key in UMI:
@@ -234,9 +309,11 @@ def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
                     #out = out + '\t0'
                 else:
                     out = out + '\t{}'.format(UMI[key][cell])
+                    sample_index,cell_index = cell.split('_')
+                    total_UMIs+=int(UMI[key][cell])
             if write:        
                 OUT.write(out+'\n')                
     ## Sort the count file
     sort_by_cell(outfile)
 
-    return header_cells
+    return (header_cells,cells_dropped,total_UMIs)

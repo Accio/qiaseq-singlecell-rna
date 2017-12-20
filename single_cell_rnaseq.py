@@ -15,7 +15,7 @@ from demultiplex_cells import create_cell_fastqs
 from align_transcriptome import star_alignment,star_load_index,star_remove_index,annotate_bam_umi,run_cmd
 from count_mt import count_umis,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files
-from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics,clean_for_clustering
+from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics,clean_for_clustering,check_metric_counts
 from create_excel_sheet import write_excel_workbook
 from create_annotation_tables import create_gene_tree,create_gene_hash
 
@@ -530,17 +530,20 @@ class CombineSamples(luigi.Task):
         logger.info("Started Task: {x} {y}".format(x='CombineSamples',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
         ## Aggregate on gene level
         files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*/umi_count.txt"))
-        cells_to_restrict = combine_count_files(files_to_merge,self.combined_count_file,True)
+        cells_to_restrict,cells_dropped,total_UMIs_genes = combine_count_files(files_to_merge,self.combined_count_file,True)
         ## Also, aggregate on primer level for targeted
         if config().seqtype.upper() != 'WTS':
             files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*/umi_count.primers.txt"))
-            cells_to_restrict = combine_count_files(files_to_merge,self.combined_count_file_primers,False,cells_to_restrict)
+            cells_to_restrict,cells_dropped,total_UMIs_primers = combine_count_files(files_to_merge,self.combined_count_file_primers,False,cells_to_restrict)
         ## Aggregate metrics for cells
         files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_cell_stats.txt"))
-        combine_cell_metrics(files_to_merge,self.combined_cell_metrics_file,config().is_low_input,cells_to_restrict)
+        cell_metrics = combine_cell_metrics(files_to_merge,self.combined_cell_metrics_file,config().is_low_input,cells_to_restrict)
         ## Aggregate metrics across different samples
         files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_read_stats.txt"))
-        combine_sample_metrics(files_to_merge,self.combined_sample_metrics_file,config().is_low_input)
+        sample_metrics = combine_sample_metrics(files_to_merge,self.combined_sample_metrics_file,config().is_low_input,cells_dropped,self.output_dir)
+        ## Ensure metrics tally up between sample level and cell level files
+        check_metric_counts(sample_metrics,cell_metrics,total_UMIs_genes)        
+        
         ## Sort the UMI count files by gene/primer coordinates
         cmd1 = """ cat {count_file}| awk 'NR == 1; NR > 1 {{print $0 | "sort --ignore-case -V -k4,4 -k5,5 -k6,6"}}' > {temp}"""
         cmd2 = """ cp {temp} {count_file} """
