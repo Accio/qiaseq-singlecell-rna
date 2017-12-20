@@ -129,9 +129,9 @@ def create_gene_tree(annotation_gtf,ercc_bed,merge_coordinates=False):
     ## Build a gene tree to store gene info
     for gene in genes:
         for info in genes[gene]:
-            print info
             start,end,chrom,strand,gene,ensembl_id = info
-            if strand == "+":
+            assert strand in ['-1','+1'],"Incorrect strand !"
+            if strand == "1":
                 five_prime = start
                 three_prime = end
             else:
