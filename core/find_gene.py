@@ -43,7 +43,7 @@ def find_gene(gene_tree,read_tup):
         return ('Unmapped',mt,0,nh)
     if 'ERCC' in read_chrom:
         read_end = return_read_end_pos(read_pos,read_cigar)
-        result = gene_tree[read_chrom]["+"].search(read_pos,read_end)
+        result = gene_tree[read_chrom]["1"].search(read_pos,read_end)
         if result:
             return (next(iter(result)).data,mt,0,nh)            
             logger.info("{read_id}: Mapped to {ercc}".format(read_id=read_id,ercc=read_chrom))
