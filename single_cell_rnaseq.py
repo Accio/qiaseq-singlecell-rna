@@ -592,9 +592,11 @@ class ClusteringAnalysis(luigi.Task):
         self.combined_count_file = os.path.join(self.output_dir,'{}.umi_counts.gene.txt'.format(self.runid))
         self.combined_cell_metrics_file = os.path.join(self.output_dir,'{}.metrics.by_cell_index.txt'.format(self.runid))
         self.logfile = os.path.join(self.output_dir,'logs/')
-        self.script_path =  os.path.join(os.path.dirname(
-            os.path.realpath(__file__)),'core/secondary_analysis_pipeline.R')
-        ## Pipeline specific params
+        self.script_path_basics =  os.path.join(os.path.dirname(
+            os.path.realpath(__file__)),'core/secondary_analysis_pipeline_BASiCS.R')
+        self.script_path_scran =  os.path.join(os.path.dirname(
+            os.path.realpath(__file__)),'core/secondary_analysis_pipeline_scran.R')        
+        ## Pipeline specific params        
         self.target_dir = os.path.join(self.output_dir,'targets')
         if not os.path.exists(self.target_dir):
             os.makedirs(self.target_dir)
@@ -605,7 +607,7 @@ class ClusteringAnalysis(luigi.Task):
             """ Rscript {script_path} {rundir} {count_file}.clean {ercc_file}"""
             """ {qc_file}.clean {runid} {niter} {ncpu} {k} {perplexity}"""
             """ {hvgthres} 2>&1""".format(
-                script_path=self.script_path,rundir=self.output_dir,
+                script_path=self.script_path_basics,rundir=self.output_dir,
                 count_file=self.combined_count_file,ercc_file=self.ercc_file,
                 qc_file=self.combined_cell_metrics_file,runid=self.runid,
                 niter=self.niter,ncpu=self.ncpu,k=self.k,
@@ -615,7 +617,7 @@ class ClusteringAnalysis(luigi.Task):
             """ Rscript {script_path} {rundir} {count_file}.clean {ercc_file}"""
             """ {qc_file}.clean {runid} {ncpu} {k} {perplexity}"""
             """ {hvgthres} 2>&1""".format(
-                script_path=self.script_path,rundir=self.output_dir,
+                script_path=self.script_path_scran,rundir=self.output_dir,
                 count_file=self.combined_count_file,ercc_file=self.ercc_file,
                 qc_file=self.combined_cell_metrics_file,runid=self.runid,
                 ncpu=self.ncpu,k=self.k,
@@ -641,6 +643,9 @@ class ClusteringAnalysis(luigi.Task):
         except subprocess.CalledProcessError as e1:
             logger.info("Failed to BASiCS based clustering : \n{e1}".format(e1=e1))
             try:
+                clustering_out = os.path.join(self.rundir,'clustering_results')
+                if os.path.exists(clustering_out): 
+                    run_cmd("mv {old} {new}".format(out=clustering_out,new=clustering_out+"_basics_failed"))
                 run_cmd(self.cmd_scran)
             except Exception as e2:
                 Exception(e2)
