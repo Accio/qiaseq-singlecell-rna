@@ -601,7 +601,7 @@ class ClusteringAnalysis(luigi.Task):
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
                                               '.verification.txt')
-        self.cmd = (
+        self.cmd_basics = (
             """ Rscript {script_path} {rundir} {count_file}.clean {ercc_file}"""
             """ {qc_file}.clean {runid} {niter} {ncpu} {k} {perplexity}"""
             """ {hvgthres} 2>&1""".format(
@@ -611,6 +611,17 @@ class ClusteringAnalysis(luigi.Task):
                 niter=self.niter,ncpu=self.ncpu,k=self.k,
                 perplexity=self.perplexity,hvgthres=self.hvgthres
             ))
+        self.cmd_scran = (
+            """ Rscript {script_path} {rundir} {count_file}.clean {ercc_file}"""
+            """ {qc_file}.clean {runid} {ncpu} {k} {perplexity}"""
+            """ {hvgthres} 2>&1""".format(
+                script_path=self.script_path,rundir=self.output_dir,
+                count_file=self.combined_count_file,ercc_file=self.ercc_file,
+                qc_file=self.combined_cell_metrics_file,runid=self.runid,
+                ncpu=self.ncpu,k=self.k,
+                perplexity=self.perplexity,hvgthres=self.hvgthres
+            ))
+        
 
     def requires(self):
         ''' Task dependends on successful completion of merging of all the 
@@ -625,7 +636,15 @@ class ClusteringAnalysis(luigi.Task):
         ## Clean the output files first
         clean_for_clustering(self.combined_cell_metrics_file,self.combined_count_file)
 	## Run clustering analysis
-        run_cmd(self.cmd)
+        try:
+            run_cmd(self.cmd_basics)
+        except subprocess.CalledProcessError as e1:
+            logger.info("Failed to BASiCS based clustering : \n{e1}".format(e1=e1))
+            try:
+                run_cmd(self.cmd_scran)
+            except Exception as e2:
+                Exception(e2)
+                
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
         logger.info("Finished Task: {x} {y}".format(x='ClusteringAnalysis',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
