@@ -214,7 +214,9 @@ writeLines(paste0("Genes for downstream analyses: ", as.character(length(genesTo
 # MCMC sampling to estimate model parameters
 ##############################################################################
 n.iter = 50
-MCMC_Output <- tryCatch(BASiCS_MCMC(FilterData, N=n.iter, Thin=5, Burn=n.iter/10, StoreChains=F, StoreDir='./misc', RunName=run.id, PrintProgress=T), finally = print('hello'))
+MCMC_Output <- tryCatch(BASiCS_MCMC(FilterData, N=n.iter, Thin=5, Burn=n.iter/10, StoreChains=F, StoreDir='./misc', RunName=run.id, PrintProgress=T),
+	         error=quit(save="no",status=99,runLast=FALSE)
+	 	 )
 
 
 save(MCMC_Output, file=paste0('misc/', run.id, '.MCMCoutput.RData'))
