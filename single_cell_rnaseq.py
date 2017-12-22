@@ -1,4 +1,5 @@
 import os
+import subprocess
 import glob
 import gzip
 import sys
@@ -641,15 +642,21 @@ class ClusteringAnalysis(luigi.Task):
         try:
             run_cmd(self.cmd_basics)
         except subprocess.CalledProcessError as e1:
-            logger.info("Failed to BASiCS based clustering : \n{e1}".format(e1=e1))
-            try:
-                clustering_out = os.path.join(self.rundir,'clustering_results')
-                if os.path.exists(clustering_out): 
-                    run_cmd("mv {old} {new}".format(out=clustering_out,new=clustering_out+"_basics_failed"))
-                run_cmd(self.cmd_scran)
-            except Exception as e2:
-                Exception(e2)
-                
+            logger.info("Failed to run BASiCS based clustering : \n{e1}".format(e1=e1))
+            if e1.returncode == 99: ## MCMC failed to converge
+                try:
+                    clustering_out = os.path.join(self.output_dir,'clustering_results')
+                    misc_out = os.path.join(self.output_dir,'misc')
+                    if os.path.exists(clustering_out):
+                        run_cmd("mv {old} {new}".format(old=clustering_out,new=clustering_out+"_basics_failed"))
+                    if os.path.exists(misc_out):
+                        run_cmd("mv {old} {new}".format(old=misc_out,new=misc_out+"_basics_failed"))
+                    run_cmd(self.cmd_scran)
+                except Exception as e2:
+                    raise(Exception(e2))
+            else: ## Raise Exception if failed for reasons other than MCMC
+                raise(Exception(e1))
+
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
         logger.info("Finished Task: {x} {y}".format(x='ClusteringAnalysis',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
