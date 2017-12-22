@@ -215,7 +215,8 @@ writeLines(paste0("Genes for downstream analyses: ", as.character(length(genesTo
 ##############################################################################
 n.iter = 50
 MCMC_Output <- tryCatch(BASiCS_MCMC(FilterData, N=n.iter, Thin=5, Burn=n.iter/10, StoreChains=F, StoreDir='./misc', RunName=run.id, PrintProgress=T),
-	         error=quit(save="no",status=99,runLast=FALSE)
+	         error=quit(save="no",status=99,runLast=FALSE),
+		 warning=quit(save="no",status=99,runLast=FALSE)
 	 	 )
 
 
