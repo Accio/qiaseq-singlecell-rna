@@ -203,7 +203,7 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
                     if sample in dropped_metrics[new_metric]:
                         out = out+'\t'+float_to_string(round(dropped_metrics[new_metric][sample],2))
                     else:
-                        out = out+'\t'+float_to_string(0.0))
+                        out = out+'\t'+float_to_string(0.0)
                 OUT.write(out+'\n')                
 
     return return_metrics
