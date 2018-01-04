@@ -199,8 +199,11 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
             if metric in ['reads dropped, less than 25 bp endogenous seq after primer','reads dropped, aligned to genome, multiple loci']:
                 ## Add new metric for cells dropped                
                 out = new_metric
-                for sample in dropped_metrics[new_metric]:
-                    out = out+'\t'+float_to_string(round(dropped_metrics[new_metric][sample],2))
+                for sample in sample_metrics[metric]:
+                    if sample in dropped_metrics[new_metric]:
+                        out = out+'\t'+float_to_string(round(dropped_metrics[new_metric][sample],2))
+                    else:
+                        out = out+'\t'+float_to_string(0.0))
                 OUT.write(out+'\n')                
 
     return return_metrics
