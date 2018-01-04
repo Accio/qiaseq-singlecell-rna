@@ -547,13 +547,16 @@ class CombineSamples(luigi.Task):
         check_metric_counts(sample_metrics,cell_metrics,total_UMIs_genes)        
         
         ## Sort the UMI count files by gene/primer coordinates
-        cmd1 = """ cat {count_file}| awk 'NR == 1; NR > 1 {{print $0 | "sort --ignore-case -V -k4,4 -k5,5 -k6,6"}}' > {temp}"""
+        cmd1_gene = """ cat {count_file}| awk 'NR == 1; NR > 1 {{print $0 | "sort --ignore-case -V -k4,4 -k5,5 -k6,6"}}' > {temp}"""
+        cmd1_primer = """ cat {count_file}| awk 'NR == 1; NR > 1 {{print $0 | "sort --ignore-case -V -k3,3 -k4,4 -k5,5"}}' > {temp}"""
         cmd2 = """ cp {temp} {count_file} """
+
+
         
 	if config().seqtype.upper() != 'WTS':
-            run_cmd(cmd1.format(count_file=self.combined_count_file_primers,temp='temp.txt'))
+            run_cmd(cmd1_primer.format(count_file=self.combined_count_file_primers,temp='temp.txt'))
             run_cmd(cmd2.format(temp='temp.txt',count_file=self.combined_count_file_primers))
-        run_cmd(cmd1.format(count_file=self.combined_count_file,temp='temp.txt'))
+        run_cmd(cmd1_gene.format(count_file=self.combined_count_file,temp='temp.txt'))
         run_cmd(cmd2.format(temp='temp.txt',count_file=self.combined_count_file))
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
