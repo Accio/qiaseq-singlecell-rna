@@ -186,7 +186,7 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
                     reads_total = int(val)
                 else:
                     after_qc = int(val)
-        dropped_metrics['reads dropped, less than 25 bp']+= reads_total - after_qc
+        dropped_metrics['reads dropped, less than 25 bp'] = dropped_metrics['reads dropped, less than 25 bp'] + reads_total - after_qc
         
     ## Read metrics for each sample
     for sfile in files_to_merge:
