@@ -173,9 +173,10 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
         reads_dropped_less_5_UMI=0
         UMIs_dropped=0
         with open(read_stats_file,'r') as IN:
-            for line in IN:
-                metric,val = line.strip('\n').split(':')                
-                dropped_metrics[metric][sample_index]+=int(val)
+            for line in IN:                
+                metric,val = line.strip('\n').split(':')
+                if metric!="detected genes":
+                    dropped_metrics[metric][sample_index]+=int(val)
 
         with open(cell_stats_file,'r') as IN:
             for line in IN:
@@ -192,17 +193,17 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
     for sfile in files_to_merge:
         sample_metrics = read_sample_metrics(sfile,sample_metrics)
     ## Update sample_metrics to account for cells dropped
-    total_used_reads = 0
+    total_used_reads = defaultdict(int)
     for metric in dropped_metrics:
         if metric!=new_metric:
             for sample_index in dropped_metrics[metric]:
                 if metric.startswith('reads used,'):
-                    total_used_reads+=1
+                    total_used_reads[sample_index]+=sample_metrics[metric][sample_index]
                 sample_metrics[metric][sample_index] = sample_metrics[metric][sample_index] - \
                                                        dropped_metrics[metric][sample_index]
                 
     for sample_index in dropped_metrics[metric]: ## Update mean reads per UMI to account for dropping
-        sample_metrics['mean reads per UMI'][sample_index] = float(sample_metrics['total UMIs'])/total_used_reads
+        sample_metrics['mean reads per UMI'][sample_index] = total_used_reads[sample_index]/float(sample_metrics['total UMIs'][sample_index])
                 
     ## Combine and write resultant output file
     return_metrics = defaultdict(int)
