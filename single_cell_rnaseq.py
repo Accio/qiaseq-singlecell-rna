@@ -716,7 +716,7 @@ class WriteExcelSheet(luigi.Task):
         ''' Work to be done here is writing the excel workbook
         '''
         logger.info("Starting Task: {x} {y}".format(x='WriteExcelSheet',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))        
-        if config().catalog_number == "N/A":
+        if config().catalog_number == "NA":
             catalog_number = None
         else:
             catalog_number = config().catalog_number
