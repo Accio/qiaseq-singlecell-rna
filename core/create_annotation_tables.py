@@ -4,8 +4,6 @@ from intervaltree import IntervalTree
 from collections import defaultdict
 from extract_multiplex_region import open_by_magic
 
-
-
 def convert_strand(strand):
     ''' Convert strand to QIAGEN format
     :param str strand: the strand , either + or -
@@ -124,7 +122,7 @@ def create_gene_tree(annotation_gtf,ercc_bed,merge_coordinates=False):
             strand = convert_strand(strand)
             if chrom in genes:
                 raise Exception("Duplicate ERCC names !")
-            genes[chrom].append((int(start),int(end),chrom,strand,chrom,ercc))
+            genes[chrom].append((int(start),int(end),chrom,strand,chrom,"_"+chrom+"_"))
     
     ## Build a gene tree to store gene info
     for gene in genes:

@@ -250,7 +250,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
                 umi_count = len(umi_counter[primer])
             else:
                 umi_count = 0
-            OUT1.write(ensembl_id+"\t"+strand+"\t"+str(chrom)+"\t"+str(five_prime)+"\t"+str(three_prime)+"\t"+seq+"\t"+str(umi_count)+"\n")
+            OUT1.write(ensembl_id+"\t"+gene+"\t"+strand+"\t"+str(chrom)+"\t"+str(five_prime)+"\t"+str(three_prime)+"\t"+seq+"\t"+str(umi_count)+"\n")
             if gene not in seen: ## Genes will be repeated for multiple primers, since results are already accumulated , only write once for a gene
                 if gene in umi_counter_gene:
                     umi_count_gene = len(umi_counter_gene[gene])
