@@ -59,10 +59,11 @@ def clean_for_clustering(combined_cell_metrics_file,combined_umi_counts_file):
                 outline = '\t'.join(out)
                 print >> OUT,outline
            
-def sort_by_cell(outputfile):
+def sort_by_cell(outputfile,wts):
     ''' Sort the output count files by Sample_Cells
 
     :param: str outputfile: path to the output file
+    :param: bool wts: whether the file corresponds to a primer/gene file
     '''
     temp=outputfile+'.sorted'
     with open(outputfile,'r') as IN,open(temp,'w') as OUT:
@@ -71,14 +72,23 @@ def sort_by_cell(outputfile):
             contents=line.strip('\n').split('\t')
             if i == 0: #header
                 contents = line.strip('\n').split('\t')
-                anno_header = '\t'.join(contents[0:6])
-                cells = contents[6:]
+                if wts:
+                    anno_header = '\t'.join(contents[0:6])
+                    cells = contents[6:]
+                else:
+                    anno_header = '\t'.join(contents[0:7])
+                    cells = contents[7:]                    
+                    
                 sorted_cells = '\t'.join(natsort.natsorted(cells))
                 OUT.write(anno_header+'\t'+sorted_cells+'\n')
                 i=1
                 continue
-            anno = '\t'.join(contents[0:6])
-            sorted_vals = [x for _,x in natsort.natsorted(zip(cells,contents[6:]))]
+            if wts:
+                anno = '\t'.join(contents[0:6])
+                sorted_vals = [x for _,x in natsort.natsorted(zip(cells,contents[6:]))]
+            else:
+                anno = '\t'.join(contents[0:7])
+                sorted_vals = [x for _,x in natsort.natsorted(zip(cells,contents[7:]))]               
             OUT.write(anno+'\t'+'\t'.join(sorted_vals)+'\n')
     os.system('mv {temp} {outputfile}'.format(temp=temp,outputfile=outputfile))
 
@@ -155,6 +165,8 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
         else:    
             sample_index,cell_index = cell.split('_')
         read_stats_file = glob.glob(os.path.join(output_dir,'{sample_index}/Cell{cell_index}_*/read_stats.txt'.format(sample_index=sample_index,cell_index=cell_index)))[0]
+        cell_stats_file = glob.glob(os.path.join(output_dir,'{sample_index}/Cell{cell_index}_*/*_demultiplex_stats.txt'.format(sample_index=sample_index,cell_index=cell_index)))[0]
+        
         cell_check = os.path.dirname(read_stats_file).split('/')[-1].split('_')[0].strip('Cell')
         ## Check to make sure we got the correct file
         assert cell_check == cell_index, "Incorrect matching of dropped CellIndex : {}".format(cell+" to "+cell_check)
@@ -162,21 +174,36 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
         UMIs_dropped=0
         with open(read_stats_file,'r') as IN:
             for line in IN:
+                metric,val = line.strip('\n').split(':')                
+                dropped_metrics[metric][sample_index]+=int(val)
+
+        with open(cell_stats_file,'r') as IN:
+            for line in IN:
                 metric,val = line.strip('\n').split(':')
-                if metric.startswith('reads used,') or metric == 'total UMIs':
-                    dropped_metrics[metric][sample_index]+=int(val)
-                    if metric.startswith('reads used,'):
-                        dropped_metrics[new_metric][sample_index]+=int(val)
-    
+                if metric == 'reads total':
+                    found=True
+                    dropped_metrics[new_metric][sample_index]+= int(val)
+                    reads_total = int(val)
+                else:
+                    after_qc = int(val)
+        dropped_metrics['reads dropped, less than 25 bp']+= reads_total - after_qc
+        
     ## Read metrics for each sample
     for sfile in files_to_merge:
         sample_metrics = read_sample_metrics(sfile,sample_metrics)
     ## Update sample_metrics to account for cells dropped
+    total_used_reads = 0
     for metric in dropped_metrics:
         if metric!=new_metric:
             for sample_index in dropped_metrics[metric]:
+                if metric.startswith('reads used,'):
+                    total_used_reads+=1
                 sample_metrics[metric][sample_index] = sample_metrics[metric][sample_index] - \
                                                        dropped_metrics[metric][sample_index]
+                
+    for sample_index in dropped_metrics[metric]: ## Update mean reads per UMI to account for dropping
+        sample_metrics['mean reads per UMI'][sample_index] = float(sample_metrics['total UMIs'])/total_used_reads
+                
     ## Combine and write resultant output file
     return_metrics = defaultdict(int)
     with open(outfile,'w') as OUT:
@@ -194,7 +221,8 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
                     return_metrics['reads used']+=int(sample_metrics[metric][sample])
                 elif metric.startswith('total UMIs'):
                     return_metrics['total UMIs']+=int(sample_metrics[metric][sample])                   
-                out = out+'\t'+float_to_string(round(sample_metrics[metric][sample],2))
+                out = out+'\t'+float_to_string(round(sample_metrics[metric][sample],2))               
+            
             OUT.write(out+'\n')
             if metric in ['reads dropped, less than 25 bp endogenous seq after primer','reads dropped, aligned to genome, multiple loci']:
                 ## Add new metric for cells dropped                
@@ -280,8 +308,12 @@ def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
         with open(f,'r') as IN:
             cell_key = sample_name+'_'+str(cell)
             for line in IN:
-                k1,k2,k3,k4,k5,k6,umi = line.rstrip('\n').split('\t')
-                key = (k1,k2,k3,k4,k5,k6)
+                if wts:
+                    k1,k2,k3,k4,k5,k6,umi = line.rstrip('\n').split('\t')
+                    key = (k1,k2,k3,k4,k5,k6)
+                else:
+                    k1,k2,k3,k4,k5,k6,k7,umi = line.rstrip('\n').split('\t')
+                    key = (k1,k2,k3,k4,k5,k6,k7)
                 ## Hash the umi counts by annotation and cells
                 UMI[key][cell_key] = umi
                 check_counts.append(int(umi))
@@ -300,7 +332,7 @@ def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
     if wts:
         header = "gene id\tgene\tstrand\tchrom\tloc 5' GRCh38\tloc 3' GRCh38\t{cells}\n"
     else:
-        header = "gene\tstrand\tchrom\tloc 5' GRCh38\tloc 3' GRCh38\tprimer seq\t{cells}\n"
+        header = "gene id\tgene\tstrand\tchrom\tloc 5' GRCh38\tloc 3' GRCh38\tprimer seq\t{cells}\n"
     temp = '\t'.join(list(header_cells))
     head = header.format(cells=temp)
     ## Print output
@@ -320,6 +352,6 @@ def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
             if write:        
                 OUT.write(out+'\n')                
     ## Sort the count file
-    sort_by_cell(outfile)
+    sort_by_cell(outfile,wts)
 
     return (header_cells,cells_dropped,total_UMIs)

@@ -29,15 +29,19 @@ def merge_count_files(basedir,out_file,sample_name,wts,ncells,files_to_merge):
         cell = os.path.dirname(f).split('/')[-1].split('_')[0].strip('Cell')
         with open(f,'r') as IN:
             for line in IN:
-                k1,k2,k3,k4,k5,k6,mt = line.rstrip('\n').split('\t')
-                key = (k1,k2,k3,k4,k5,k6)
+                if wts:
+                    k1,k2,k3,k4,k5,k6,mt = line.rstrip('\n').split('\t')
+                    key = (k1,k2,k3,k4,k5,k6)
+                else:
+                    k1,k2,k3,k4,k5,k6,k7,mt = line.rstrip('\n').split('\t')
+                    key = (k1,k2,k3,k4,k5,k6,k7)
                 MT[key][cell] = mt
     last_key = cell
 
     if wts:
         header = "gene id\tgene\tstrand\tchrom\tloc 5' GRCH38\tloc 3' GRCH38\t{cells}\n"
     else:
-        header = "primer sequence\tgene\tstrand\tchrom\tloc 5' GRCH38\tloc 3' GRCH38\t{cells}\n"
+        header = "gene id\tgene\tstrand\tchrom\tloc 5' GRCH38\tloc 3' GRCH38\tprimer seq\t{cells}\n"
     with open(out_file,'w') as OUT:
         OUT.write(header.format(cells = cell_header))
         for key in MT:
