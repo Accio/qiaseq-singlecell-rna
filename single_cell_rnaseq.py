@@ -689,7 +689,7 @@ class WriteExcelSheet(luigi.Task):
         '''
         super(WriteExcelSheet,self).__init__(*args,**kwargs)
 	self.runid = os.path.basename(self.output_dir)
-        self.combined_count_file = os.path.join(self.output_dir,'{}.umi_counts.gene.{pcatn}.txt'.format(self.runid,pcatn=config().catalog_number))
+        self.combined_count_file = os.path.join(self.output_dir,'{runid}.umi_counts.gene.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))
         self.combined_count_file_primers = os.path.join(self.output_dir,'{runid}.umi_counts.primer.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))        
         self.combined_cell_metrics_file = os.path.join(self.output_dir,'{}.metrics.by_cell_index.txt'.format(self.runid))
         self.combined_sample_metrics_file = os.path.join(self.output_dir,'{}.metrics.by_sample_index.txt'.format(self.runid))	
