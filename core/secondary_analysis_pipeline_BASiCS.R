@@ -141,7 +141,7 @@ totalEndoUMIs <- apply(Counts[!Tech, ], 2, sum)
 pctEndoUMIs <- totalEndoUMIs / totalUMIs
 pctEndoUMIs.df <- data.frame(pctEndoUMIs)
 p.pctEndoUMIs <- ggplot(pctEndoUMIs.df, aes(x=pctEndoUMIs)) + geom_density() + xlab('% of UMIs mapped to endogenous genes')
-ggsave(paste0('clustering_results/', run.id, '.pct_endoGene_UMI.png'), dpi=300, height=7, width=7)
+ggsave(paste0('misc/', run.id, '.pct_endogenous_gene_UMI.png'), dpi=300, height=7, width=7)
 
 # relative log expression (RLE) plot for ERCC; make plot if <= 96 cells. TODO: what to do when n>96? 
 if(n.cell <= 96){
@@ -157,7 +157,7 @@ if(n.cell <= 96){
    df %>% mutate(cell_ID = factor(cell_ID, levels=df.med$cell_ID)) %>% 
       ggplot(aes(x=cell_ID, y=cnt)) + geom_boxplot() + geom_hline(yintercept=0, linetype='dashed') +
       theme(axis.text.x = element_text(angle = 270, hjust = 1)) + ylab('Relative Log Expression (ERCC)') + xlab('Cell ID') -> p.rle
-   ggsave(paste0('clustering_results/', run.id, '.RLE_ERCC.png'), dpi=400, height=8.94, width=15)
+   ggsave(paste0('misc/', run.id, '.RLE_ERCC.png'), dpi=400, height=8.94, width=15)
 }
 
 # observed vs expected ERCC; averaged across all cells
@@ -201,13 +201,13 @@ newSpikeInput <- newSpikeInfo$SpikeInput
 FilterData <- newBASiCS_Data(Counts=newCounts, Tech=newTech, SpikeInfo=newSpikeInfo)
 
 # write dropped cells and genes to file
-write.csv(qc.drop, paste0('clustering_results/', run.id, '.cell_dropped.csv'), row.names=F, quote=F)
+write.csv(qc.drop, paste0('clustering_results/', run.id, '.step1_dropped_cells.csv'), row.names=F, quote=F)
 writeLines(paste0("Low-quality cells dropped: ", as.character(length(cellsToDrop))))
 writeLines(paste0("Cells for downstream analyses: ", as.character(length(cellsToKeep))))
 
 geneDropped <- data.frame(genesToDrop)
 colnames(geneDropped) <- 'Genes_dropped'
-write.csv(geneDropped, paste0('clustering_results/', run.id, '.gene_dropped.csv'), row.names=F, quote=F)
+write.csv(geneDropped, paste0('clustering_results/', run.id, '.step1_dropped_genes.csv'), row.names=F, quote=F)
 writeLines(paste0("Low-expression genes dropped: ", as.character(length(genesToDrop))))
 writeLines(paste0("Genes for downstream analyses: ", as.character(length(genesToKeep))))
 
@@ -243,7 +243,7 @@ MCMC_Summary <- Summary(MCMC_Output)
 
 # variance decomposition; There seems to be a bug in BASiCS_VarianceDecomp() function; disable this temporarily until fixed
 #VarDecomp <- BASiCS_VarianceDecomp(FilterData, MCMC_Output)
-#write.csv(VarDecomp, paste0('clustering_results/', run.id, '.Variance_decomposition.csv'), row.names=F, quote=F)
+#write.csv(VarDecomp, paste0('clustering_results/', run.id, '.step3_variance_decomposition.csv'), row.names=F, quote=F)
 
 # highly and lowly variable genes
 DetectHVG <- BASiCS_DetectHVG(Chain = MCMC_Output, VarThreshold = hvg.thres, Plot = F)
@@ -255,7 +255,7 @@ HVG <- HVG1$GeneName
 #HVG2 <- VarDecomp$GeneNames[1:var20p] 
 #HVG <- unique(c(HVG1, HVG2))
 df.HVG <- data.frame(HVG)
-write.csv(df.HVG, paste0('clustering_results/', run.id, '.highly_variable_genes.csv'), row.names=F, quote=F)
+write.csv(df.HVG, paste0('clustering_results/', run.id, '.step3_highly_variable_genes.csv'), row.names=F, quote=F)
 
 # log-log plot of inter-cell CV vs. mean transcripts per cell
 newCounts <- data.frame(assay(FilterData), row.names=rownames(assay(FilterData)))
@@ -265,11 +265,11 @@ newCounts %>% mutate(meanUMI = meanUMI, CV = CV,
                      geneType = factor(ifelse(grepl('ERCC', rownames(newCounts)), 'Spike-in', ifelse(rownames(newCounts) %in% HVG, 'HVG', 'Others')), levels=c('HVG', 'Spike-in', 'Others'))) %>% 
             ggplot(aes(x=log(meanUMI), y=log(CV), colour=geneType)) + geom_point() + theme_bw() + xlab('log(mean expression)') + ylab('log(CV)') +
                   geom_abline(slope=-0.5, intercept=0, linetype='dashed') + scale_color_manual(values=c('red', 'blue', 'gray')) -> p.cv_mean
-ggsave(paste0('clustering_results/', run.id, '.CV_vs_mean_expression.png'), dpi=300, height=7, width=7)
+ggsave(paste0('clustering_results/', run.id, '.step2_CV_vs_mean_expression.png'), dpi=300, height=7, width=7)
 
 # normalized UMI counts
 DenoisedCounts <- BASiCS_DenoisedCounts(Data=FilterData, Chain=MCMC_Output)
-write.csv(DenoisedCounts, paste0('clustering_results/', run.id, '.normalized_UMI.csv'), row.names=T, quote=F)
+write.csv(DenoisedCounts, paste0('clustering_results/', run.id, '.step2_normalized_UMI.csv'), row.names=T, quote=F)
 
 ##############################################################################
 # cell clustering and visualization based on HVG
