@@ -316,7 +316,7 @@ o.prior <- scde.expression.prior(models = o.ifm, counts = df.DenoisedCounts, len
 
 for(k in 2:k.max){
    # create subdirectory to store outputs
-   subdir <- ifelse(k==k.def, paste0("clustering_results/k=", k, "_default"), paste0("clustering_results/k=", k))
+   subdir <- ifelse(k==k.def, paste0("clustering_results/k_", k, "_default"), paste0("clustering_results/k_", k))
    if(!file.exists(subdir)) dir.create(subdir)
 
    # consistent colors in clustering plot and heatmap
