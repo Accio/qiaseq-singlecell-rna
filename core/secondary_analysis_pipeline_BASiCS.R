@@ -1,7 +1,7 @@
 # scRNA-seq secondary data analysis 
 # vim: tabstop=9 expandtab shiftwidth=3 softtabstop=3
 # main script using BASiCS-1.1.0 for normalization and HVG detection
-# Chang Xu, 20DEC2017
+# Chang Xu, 11JAN2018 
 
 # clear all R objects
 rm(list=ls())
@@ -87,6 +87,7 @@ if(!file.exists('misc')) dir.create('misc')
 # read in raw data
 if(file.exists(ercc.input)){
   ercc.orig <- read.csv(ercc.input, header=T, check.names=F)
+  colnames(ercc.orig) <- c('ERCC_ID', 'input_2ul', 'input_1ul')
 } else{
   stop(paste0(ercc.input, " not found! Program stopped."))
 }
@@ -213,7 +214,6 @@ writeLines(paste0("Genes for downstream analyses: ", as.character(length(genesTo
 ##############################################################################
 # MCMC sampling to estimate model parameters
 ##############################################################################
-n.iter = 50
 MCMC_Output <- tryCatch(BASiCS_MCMC(FilterData, N=n.iter, Thin=5, Burn=n.iter/10, StoreChains=F, StoreDir='./misc', RunName=run.id, PrintProgress=T),
 	         error=quit(save="no",status=99,runLast=FALSE),
 		 warning=quit(save="no",status=99,runLast=FALSE)
@@ -241,22 +241,24 @@ dev.off()
 # summarize model fit
 MCMC_Summary <- Summary(MCMC_Output)
 
-# variance decomposition
-VarDecomp <- BASiCS_VarianceDecomp(FilterData, MCMC_Output)
-write.csv(VarDecomp, paste0('clustering_results/', run.id, '.Variance_decomposition.csv'), row.names=F, quote=F)
+# variance decomposition; There seems to be a bug in BASiCS_VarianceDecomp() function; disable this temporarily until fixed
+#VarDecomp <- BASiCS_VarianceDecomp(FilterData, MCMC_Output)
+#write.csv(VarDecomp, paste0('clustering_results/', run.id, '.Variance_decomposition.csv'), row.names=F, quote=F)
 
 # highly and lowly variable genes
-DetectHVG <- BASiCS_DetectHVG(FilterData, MCMC_Output, VarThreshold = hvg.thres, Plot = F)
+DetectHVG <- BASiCS_DetectHVG(Chain = MCMC_Output, VarThreshold = hvg.thres, Plot = F)
 # HVG defined as genes above threshold or top 20% biological variation percentage (minimum 10 genes), to avoid edge cases when only a few genes meet threshold
-HVG1 <- DetectHVG$Table[DetectHVG$Table$HVG, 'GeneNames']
-var20p <- max(10, ceiling(0.2 * nrow(VarDecomp)))
-HVG2 <- VarDecomp$GeneNames[1:var20p] 
-HVG <- unique(c(HVG1, HVG2))
+HVG1 <- DetectHVG$Table %>% filter(HVG)
+HVG <- HVG1$GeneName
+
+#var20p <- max(10, ceiling(0.2 * nrow(VarDecomp)))
+#HVG2 <- VarDecomp$GeneNames[1:var20p] 
+#HVG <- unique(c(HVG1, HVG2))
 df.HVG <- data.frame(HVG)
 write.csv(df.HVG, paste0('clustering_results/', run.id, '.highly_variable_genes.csv'), row.names=F, quote=F)
 
 # log-log plot of inter-cell CV vs. mean transcripts per cell
-newCounts <- data.frame(counts(FilterData), row.names=rownames(counts(FilterData)))
+newCounts <- data.frame(assay(FilterData), row.names=rownames(assay(FilterData)))
 meanUMI <- apply(newCounts, 1, mean)
 CV <- apply(newCounts, 1, function(x) sd(x) / mean(x))
 newCounts %>% mutate(meanUMI = meanUMI, CV = CV, 
