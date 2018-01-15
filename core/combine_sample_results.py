@@ -11,7 +11,7 @@ class MyOrderedDict(OrderedDict):
         return val
 
 def clean_for_clustering(combined_cell_metrics_file,combined_umi_counts_file):
-    ''' Clean the cells , i.e. remove cells with no ERCC reads
+    ''' Clean the header line in the output file for clustering analysis
 
     :param: str combined_cell_metrics: the path to the combined metrics file
     :param: str combined_cell_metrics: the path to the combined umi counts file
@@ -31,12 +31,8 @@ def clean_for_clustering(combined_cell_metrics_file,combined_umi_counts_file):
             else:                
                 contents = line.split('\t')
                 cell = contents[0]
-                if int(contents[5]) == 0: ## Remove cells with no reads mapped to ERCC
-                    continue
-                else:
-                    print >> OUT,line
-                    clean_cells.append(cell)
-                    
+                print >> OUT,line
+
     with open(combined_umi_counts_file,'r') as IN,open(combined_umi_counts_file+'.clean','w') as OUT:
         i = 0
         for line in IN:
@@ -45,19 +41,12 @@ def clean_for_clustering(combined_cell_metrics_file,combined_umi_counts_file):
             if i == 0: ## Header
                 header_anno = clean_header_umi
                 header_cells = contents[6:]
-                outheader = '\t'.join(header_anno) + '\t' + '\t'.join(clean_cells)
+                outheader = '\t'.join(header_anno) + '\t' + '\t'.join(header_cells)
                 print >> OUT,outheader
                 i=i+1
                 continue
-            else:
-                umis = contents[6:]
-                umi_dict = dict(zip(header_cells,umis))
-                ## Keep only the cells filtered in the metrics file
-                out = contents[0:6]
-                for cell in clean_cells:                     
-                    out.append(umi_dict[cell])
-                outline = '\t'.join(out)
-                print >> OUT,outline
+            else:                
+                print >> OUT,line
            
 def sort_by_cell(outputfile,wts):
     ''' Sort the output count files by Sample_Cells
@@ -277,8 +266,10 @@ def combine_cell_metrics(files_to_merge,outfile,is_lowinput,cells_to_restrict):
 
 def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
     ''' Function to combine cells from different samples into 1 file
-    The directory strucuture of a typical run loooks like : 
-              <output_folder> 
+    The directory strucuture of a typical run loooks like :
+            <run_dir>
+              <primary_analysis>
+                --- combined_umi_count_file.txt
                 --- Sample1
                   --- cell1
                     --- cell1_Sample1
@@ -346,7 +337,6 @@ def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
             for cell in header_cells:
                 if cell not in UMI[key]:
                     raise Exception("Cell not hashed for Gene/Primer : {cell}-{k}".format(cell=cell,k=key))
-                    #out = out + '\t0'
                 else:
                     out = out + '\t{}'.format(UMI[key][cell])                    
                     total_UMIs+=int(UMI[key][cell])

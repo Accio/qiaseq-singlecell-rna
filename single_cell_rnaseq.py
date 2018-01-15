@@ -18,6 +18,7 @@ from count_mt import count_umis,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files
 from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics,clean_for_clustering,check_metric_counts
 from create_excel_sheet import write_excel_workbook
+from create_run_summary import is_gzip_empty, write_run_summary
 from create_annotation_tables import create_gene_tree,create_gene_hash
 
 ## Some globals to cache across tasks
@@ -29,19 +30,6 @@ logger.setLevel(logging.DEBUG)
 ch = logging.StreamHandler(sys.stdout)
 logger.addHandler(ch)
 
-def is_gzip_empty(gzipfile):
-    ''' Helper function to check if a gzip file is empty
-    :param str gzipfile: the .gz file
-    :returns Whether the file is empty or not
-    :rtype bool
-    '''
-    with gzip.open(gzipfile,'r') as IN:
-        i=0
-        for line in IN:
-            if i == 5:
-                break
-            i+=1
-    return i == 0
 
 class config(luigi.Config):
     ''' Initialize values from configuration file
@@ -125,7 +113,7 @@ class ExtractMultiplexRegion(luigi.Task):
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
-        logger.info("Finished Task: {x}-{y} {z}".format(x='DeMultiplexer',y=self.sample_name,z=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+        logger.info("Finished Task: {x}-{y} {z}".format(x='ExtractMultiplexRegion',y=self.sample_name,z=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
  
     def output(self):
         ''' Check for the existence of the verification file
@@ -485,10 +473,11 @@ class CombineSamples(luigi.Task):
         '''
         super(CombineSamples,self).__init__(*args,**kwargs)
 	self.runid = os.path.basename(self.output_dir)
-        self.combined_count_file = os.path.join(self.output_dir,'{runid}.umi_counts.gene.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))
-        self.combined_count_file_primers = os.path.join(self.output_dir,'{runid}.umi_counts.primer.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))        
-        self.combined_cell_metrics_file = os.path.join(self.output_dir,'{}.metrics.by_cell_index.txt'.format(self.runid))
-        self.combined_sample_metrics_file = os.path.join(self.output_dir,'{}.metrics.by_sample_index.txt'.format(self.runid))
+        self.primary_dir = os.path.join(self.output_dir,"primary_analysis")
+        self.combined_count_file = os.path.join(self.primary_dir,'{runid}.umi_counts.gene.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))
+        self.combined_count_file_primers = os.path.join(self.primary_dir,'{runid}.umi_counts.primer.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))        
+        self.combined_cell_metrics_file = os.path.join(self.primary_dir,'{}.metrics.by_cell_index.txt'.format(self.runid))
+        self.combined_sample_metrics_file = os.path.join(self.primary_dir,'{}.metrics.by_sample_index.txt'.format(self.runid))
         ## The verification file for this task
         self.target_dir = os.path.join(self.output_dir,'targets')
         if not os.path.exists(self.target_dir):
@@ -518,7 +507,7 @@ class CombineSamples(luigi.Task):
             dependencies.append(
                 JoinCountFiles(
                     R1_fastq=R1_fastq,R2_fastq=R2_fastq,
-                    output_dir=self.output_dir,sample_name=sample_name,
+                    output_dir=self.primary_dir,sample_name=sample_name,
                     cell_index_file=self.cell_index_file,vector_sequence=self.vector_sequence,
                     isolator=self.isolator,mt_len=self.mt_len,num_cores=self.num_cores,
                     num_errors=self.num_errors,instrument=instrument
@@ -531,17 +520,17 @@ class CombineSamples(luigi.Task):
         '''
         logger.info("Started Task: {x} {y}".format(x='CombineSamples',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
         ## Aggregate on gene level
-        files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*/umi_count.txt"))
+        files_to_merge = glob.glob(os.path.join(self.primary_dir,"*/*/umi_count.txt"))
         cells_to_restrict,cells_dropped,total_UMIs_genes = combine_count_files(files_to_merge,self.combined_count_file,True)
         ## Also, aggregate on primer level for targeted
         if config().seqtype.upper() != 'WTS':
-            files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*/umi_count.primers.txt"))
+            files_to_merge = glob.glob(os.path.join(self.primary_dir,"*/*/umi_count.primers.txt"))
             cells_to_restrict,cells_dropped,total_UMIs_primers = combine_count_files(files_to_merge,self.combined_count_file_primers,False,cells_to_restrict)
         ## Aggregate metrics for cells
-        files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_cell_stats.txt"))
+        files_to_merge = glob.glob(os.path.join(self.primary_dir,"*/*_cell_stats.txt"))
         cell_metrics = combine_cell_metrics(files_to_merge,self.combined_cell_metrics_file,config().is_low_input,cells_to_restrict)
         ## Aggregate metrics across different samples
-        files_to_merge = glob.glob(os.path.join(self.output_dir,"*/*_read_stats.txt"))
+        files_to_merge = glob.glob(os.path.join(self.primary_dir,"*/*_read_stats.txt"))
         sample_metrics = combine_sample_metrics(files_to_merge,self.combined_sample_metrics_file,config().is_low_input,cells_dropped,self.output_dir)
         ## Ensure metrics tally up between sample level and cell level files
         check_metric_counts(sample_metrics,cell_metrics,total_UMIs_genes)        
@@ -550,8 +539,6 @@ class CombineSamples(luigi.Task):
         cmd1_gene = """ cat {count_file}| awk 'NR == 1; NR > 1 {{print $0 | "sort --ignore-case -V -k4,4 -k5,5 -k6,6"}}' > {temp}"""
         cmd1_primer = """ cat {count_file}| awk 'NR == 1; NR > 1 {{print $0 | "sort --ignore-case -V -k3,3 -k4,4 -k5,5"}}' > {temp}"""
         cmd2 = """ cp {temp} {count_file} """
-
-
         
 	if config().seqtype.upper() != 'WTS':
             run_cmd(cmd1_primer.format(count_file=self.combined_count_file_primers,temp='temp.txt'))
@@ -593,9 +580,11 @@ class ClusteringAnalysis(luigi.Task):
         self.hvgthres = 0.40
         ## Generic Params for input files to the R code
         self.runid = os.path.basename(self.output_dir)
-        self.combined_count_file = os.path.join(self.output_dir,'{}.umi_counts.gene.{pcatn}.txt'.format(self.runid,pcatn=config().catalog_number))
-        self.combined_cell_metrics_file = os.path.join(self.output_dir,'{}.metrics.by_cell_index.txt'.format(self.runid))
-        self.logfile = os.path.join(self.output_dir,'logs/')
+        self.primary_dir = os.path.join(self.output_dir,"primary_analysis")        
+        self.combined_count_file = os.path.join(self.primary_dir,'{}.umi_counts.gene.{pcatn}.txt'.format(self.runid,pcatn=config().catalog_number))
+        self.combined_cell_metrics_file = os.path.join(self.primary_dir,'{}.metrics.by_cell_index.txt'.format(self.runid))
+        self.combined_sample_metrics_file = os.path.join(self.primary_dir,'{}.metrics.by_sample_index.txt'.format(self.runid))        
+        self.logfile = os.path.join(self.primary_dir,'logs/')
         self.script_path_basics =  os.path.join(os.path.dirname(
             os.path.realpath(__file__)),'core/secondary_analysis_pipeline_BASiCS.R')
         self.script_path_scran =  os.path.join(os.path.dirname(
@@ -627,6 +616,17 @@ class ClusteringAnalysis(luigi.Task):
                 ncpu=self.ncpu,k=self.k,
                 perplexity=self.perplexity,hvgthres=self.hvgthres
             ))
+        self.cmd_scran_low_ercc = (
+            """ Rscript {script_path} {rundir} {count_file}.clean {ercc_file}"""
+            """ {qc_file}.clean {runid} {ncpu} {k} {perplexity}"""
+            """ {hvgthres} 2>&1""".format(
+                script_path=self.script_path_scran,rundir=self.output_dir,
+                count_file=self.combined_count_file,ercc_file="none",
+                qc_file=self.combined_cell_metrics_file,runid=self.runid,
+                ncpu=self.ncpu,k=self.k,
+                perplexity=self.perplexity,hvgthres=self.hvgthres
+            ))
+        
         
 
     def requires(self):
@@ -641,25 +641,43 @@ class ClusteringAnalysis(luigi.Task):
         logger.info("Starting Task: {x} {y}".format(x='ClusteringAnalysis',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
         ## Clean the output files first
         clean_for_clustering(self.combined_cell_metrics_file,self.combined_count_file)
-	## Run clustering analysis
-        try:
-            run_cmd(self.cmd_basics)
-        except subprocess.CalledProcessError as e1:
-            logger.info("Failed to run BASiCS based clustering : \n{e1}".format(e1=e1))
-            if e1.returncode == 99: ## MCMC failed to converge
-                try:
-                    clustering_out = os.path.join(self.output_dir,'clustering_results')
-                    misc_out = os.path.join(self.output_dir,'misc')
-                    if os.path.exists(clustering_out):
-                        run_cmd("mv {old} {new}".format(old=clustering_out,new=clustering_out+"_basics_failed"))
-                    if os.path.exists(misc_out):
-                        run_cmd("mv {old} {new}".format(old=misc_out,new=misc_out+"_basics_failed"))
-                    run_cmd(self.cmd_scran)
-                except Exception as e2:
-                    raise(Exception(e2))
-            else: ## Raise Exception if failed for reasons other than MCMC
-                raise(Exception(e1))
 
+        ## Calculate some statistics for running the appropriate normalization
+        cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc = calc_stats_gene_count(self.combined_count_file)
+        median_ercc = calc_median_cell_metrics(cell_stats,'umis_ercc')        
+	## Run clustering analysis
+        if median_ercc < 100:
+            logger.info("Running scran script with no ercc normalization")
+            run_cmd(self.cmd_scran_low_ercc)
+            normalization = "total-UMIs"
+            hvg = "N/A"
+        else:
+            try:
+                run_cmd(self.cmd_basics)
+                normalization = "BASiCS"
+                hvg = "scran"
+            except subprocess.CalledProcessError as e1:
+                logger.info("Failed to run BASiCS based clustering : \n{e1}".format(e1=e1))
+                if e1.returncode == 99: ## MCMC failed to converge
+                    try:
+                        normalization = "scran"
+                        hvg = "scran"
+                        clustering_out = os.path.join(self.output_dir,'clustering_results')
+                        misc_out = os.path.join(self.output_dir,'misc')
+                        if os.path.exists(clustering_out):
+                            run_cmd("mv {old} {new}".format(old=clustering_out,new=clustering_out+"_basics_failed"))
+                        if os.path.exists(misc_out):
+                            run_cmd("mv {old} {new}".format(old=misc_out,new=misc_out+"_basics_failed"))
+                        run_cmd(self.cmd_scran)
+                    except Exception as e2:
+                        raise(Exception(e2))
+                else: ## Raise Exception if failed for reasons other than MCMC
+                    raise(Exception(e1))
+
+        ## Create Run level summary file
+        metrics_from_countfile = (cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc)
+        write_run_summary(self.run_summary_file,True,self.run_id,config().seqtype,config().species,self.samples_cfg,self.sample_metrics_file,self.cell_metrics_file,cells_dropped_file,metrics_from_countfile,normalization,hvg)
+        
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
         logger.info("Finished Task: {x} {y}".format(x='ClusteringAnalysis',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
@@ -689,11 +707,12 @@ class WriteExcelSheet(luigi.Task):
         '''
         super(WriteExcelSheet,self).__init__(*args,**kwargs)
 	self.runid = os.path.basename(self.output_dir)
-        self.combined_count_file = os.path.join(self.output_dir,'{runid}.umi_counts.gene.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))
-        self.combined_count_file_primers = os.path.join(self.output_dir,'{runid}.umi_counts.primer.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))        
-        self.combined_cell_metrics_file = os.path.join(self.output_dir,'{}.metrics.by_cell_index.txt'.format(self.runid))
-        self.combined_sample_metrics_file = os.path.join(self.output_dir,'{}.metrics.by_sample_index.txt'.format(self.runid))	
-        self.combined_workbook = os.path.join(self.output_dir,'QIAseqUltraplexRNA_{}.xlsx'.format(self.runid))
+        self.primary_dir = os.path.join(self.output_dir,"primary_analysis")
+        self.combined_count_file = os.path.join(self.primary_dir,'{runid}.umi_counts.gene.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))
+        self.combined_count_file_primers = os.path.join(self.primary_dir,'{runid}.umi_counts.primer.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))        
+        self.combined_cell_metrics_file = os.path.join(self.primary_dir,'{}.metrics.by_cell_index.txt'.format(self.runid))
+        self.combined_sample_metrics_file = os.path.join(self.primary_dir,'{}.metrics.by_sample_index.txt'.format(self.runid))	
+        self.combined_workbook = os.path.join(self.primary_dir,'QIAseqUltraplexRNA_{}.xlsx'.format(self.runid))
         ## The verification file for this task
         self.target_dir = os.path.join(self.output_dir,'targets')
         if not os.path.exists(self.target_dir):

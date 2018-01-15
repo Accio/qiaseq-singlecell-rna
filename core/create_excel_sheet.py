@@ -21,7 +21,6 @@ def file_reader(infile):
                         val = e
                 type_casted_row.append(val)
             yield type_casted_row
-            #yield [ast.literal_eval(e) for e in line.strip('\n').split('\t')] ## Typecasting for right aligning numbers in excel
 
 def write_excel_workbook(files_to_write,output_excel,catalog_number=None,species=None):
     ''' Write the give files as an excel workbook with different sheets
