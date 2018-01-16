@@ -119,6 +119,7 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
     p.join()
     ## Print output results
     ## Write gene counts
+    detected_genes = set()
     with open(outfile,'w') as OUT:
         for chrom in gene_tree:
             for strand in gene_tree[chrom]:
@@ -126,6 +127,8 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
                     ensembl_id,gene,strand,chrom,five_prime,three_prime = gene_info.data
                     if gene_info.data in umi_counter:
                         umi_count = len(umi_counter[gene_info.data])
+                        if not gene.startswith('ERCC'):
+                            detected_genes.add(gene_info.data)
                     else:
                         umi_count = 0
                     total_UMIs+=umi_count
@@ -139,7 +142,7 @@ def count_umis_wts(gene_tree,tagged_bam,outfile,metricfile,logfile,cores=3):
         ('reads used, aligned to genome, unique loci',found-found_ercc),
         ('reads used, aligned to ERCC, unique loci',found_ercc),
         ('total UMIs',total_UMIs),
-        ('detected genes',len(umi_counter))
+        ('detected genes',len(detected_genes))
     ])
     write_metrics(metricfile,metric_dict,metric_dict.keys())
     logger.info('Finished UMI counting and writing to disk')
@@ -243,6 +246,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
     p.join()
     ## Print output results
     seen = []
+    detected_genes=0
     with open(outfile_primer,'w') as OUT1,open(outfile_gene,'w') as OUT2 :
         for primer in primer_info:
             ensembl_id,seq,gene,strand,chrom,five_prime,three_prime = primer_info[primer]
@@ -258,10 +262,11 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
                     umi_count_gene = 0
                 total_UMIs+=umi_count_gene                
                 OUT2.write(ensembl_id+"\t"+gene+"\t"+strand+"\t"+str(chrom)+"\t"+str(five_prime)+"\t"+str(three_prime)+"\t"+str(umi_count_gene)+"\n")
+                if not gene.startswith('ERCC'):
+                    detected_genes+=1
                 seen.append(gene)
                 
-    primers_found = len(umi_counter)
-    genes_found = len(umi_counter_gene)
+    primers_found = len(umi_counter)    
     ## Write metrics
     num_reads_mapped_ercc = endo_seq_miss_ercc + ercc_used_unique + ercc_used_multimapped
     num_reads_mapped_genome = num_reads_used_unique + multimapped_used + endo_seq_miss + \
@@ -281,7 +286,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
         ('reads used, aligned to genome, unique loci',num_reads_used_genome_unique),
         ('reads used, aligned to ERCC, multiple loci',ercc_used_multimapped),
         ('reads used, aligned to ERCC, unique loci',ercc_used_unique),        
-        ('detected genes',genes_found),
+        ('detected genes',detected_genes),
         ('total UMIs',total_UMIs)
         ])
     
