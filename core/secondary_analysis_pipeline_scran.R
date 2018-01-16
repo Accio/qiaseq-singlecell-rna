@@ -6,7 +6,7 @@
 rm(list=ls())
 
 # load functions
-source("/home/xuc/scRNA-seq/code/functions.R")
+source("/srv/qgen/code/qiaseq-singlecell-rna/core/functions.R")
 
 #args <- c('/home/xuc/scRNA-seq/tests/2053',
 #          'data/2053.umi_counts.gene.txt.clean',
@@ -193,7 +193,8 @@ cellsToDrop <- filter(qc, keep == FALSE)$Cell
 # update counts
 newCounts <- Counts[,!colnames(Counts) %in% cellsToDrop]
 
-# final overall quality check 
+# final overall quality check
+print(ercc.input)
 final.check <- overall.check(newCounts, ercc.input)
 newCounts <- final.check$new.table
 cellsToDrop <- c(cellsToDrop, final.check$cell.drop)

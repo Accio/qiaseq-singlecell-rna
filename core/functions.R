@@ -39,9 +39,13 @@ gene.check <- function(counts.table){
 }
 
 # quality check for cells
-cell.check <- function(counts.table){
+cell.check <- function(counts.table, ercc.input){
   ercc <- ifelse(grepl('ERCC', rownames(counts.table)), TRUE, FALSE)
-  totalERCCCountsPerCell <- apply(counts.table[ercc,], 2, sum)
+  if(ercc.input != "none"){
+    totalERCCCountsPerCell <- apply(counts.table[ercc,], 2, sum)
+  } else{
+    totalERCCCountsPerCell <- 5  # if no ERCC input, set totalERCCCountsPerCell to be 5 to meet the threshold
+  }
   totalGeneCountsPerCell <- apply(counts.table[!ercc,], 2, sum)
   cellInclude <- ifelse(totalERCCCountsPerCell >= 5 & totalGeneCountsPerCell >= 5, TRUE, FALSE)
   if(all(cellInclude)){
@@ -58,7 +62,7 @@ cell.check <- function(counts.table){
 }
 
 # overall quality check - alternatively checks row and col until both meet minimum requirement
-overall.check <- function(counts.table){
+overall.check <- function(counts.table, ercc.input){
   gene.pass <- FALSE
   cell.pass <- FALSE
   gene.drop <- c()
@@ -72,7 +76,7 @@ overall.check <- function(counts.table){
     gene.pass <- geneCheck$qc.pass
     
     # check cells second
-    cellCheck <- cell.check(new.table)
+    cellCheck <- cell.check(new.table, ercc.input)
     new.table <- cellCheck$new.counts
     cell.drop <- c(cell.drop, cellCheck$cell.drop)
     cell.pass <- cellCheck$qc.pass

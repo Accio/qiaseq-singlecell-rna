@@ -182,7 +182,7 @@ cellsToDrop <- filter(qc, keep == FALSE)$Cell
 newCounts <- Counts[,!colnames(Counts) %in% cellsToDrop]
 
 # final overall quality check 
-final.check <- overall.check(newCounts)
+final.check <- overall.check(newCounts,ercc.input)
 newCounts <- final.check$new.table
 cellsToDrop <- c(cellsToDrop, final.check$cell.drop)
 genesToDrop <- final.check$gene.drop
