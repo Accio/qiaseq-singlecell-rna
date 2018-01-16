@@ -3,6 +3,8 @@ import numpy as np
 from xlsxwriter.workbook import Workbook
 from collections import defaultdict
 import ConfigParser
+import glob
+import gzip
 
 def read_sample_metrics(sample_metrics_file):
     '''
