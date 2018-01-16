@@ -188,8 +188,11 @@ class LoadGenomeIndex(luigi.Task):
     def __init__(self,*args,**kwargs):
         ''' Class constructor
         '''
-        super(LoadGenomeIndex,self).__init__(*args,**kwargs) 
-        self.target_dir = os.path.join(self.output_dir,'targets')
+        super(LoadGenomeIndex,self).__init__(*args,**kwargs)
+        self.runid = os.path.basename(os.path.basename(self.output_dir))        
+        self.target_dir = os.path.join('/home/qiauser/{}'.format(self.runid),'targets')
+        if not os.path.exists(self.target_dir):
+            os.makedirs(self.target_dir)
         ## The verification file for this task
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
