@@ -1,12 +1,23 @@
 # secondary analysis using scran for normalization and HVG detection
 # vim: tabstop=9 expandtab shiftwidth=3 softtabstop=3
-# Chang Xu, 20DEC2017
+# Chang Xu, 12JAN2018
 
 # clear all R objects
 rm(list=ls())
 
 # load functions
-source("/srv/qgen/code/qiaseq-singlecell-rna/core/functions.R")
+source("/home/xuc/scRNA-seq/code/functions.R")
+
+#args <- c('/home/xuc/scRNA-seq/tests/2053',
+#          'data/2053.umi_counts.gene.txt.clean',
+#          'none', 
+#          'data/2053.metrics.by_cell_index.txt.clean', 
+#          '2053.noERCC', 
+#          '20', 
+#          '0', 
+#          '10', 
+#          '0.4'
+#          )
 
 #list of arguments
 args <- commandArgs(TRUE)
@@ -72,14 +83,16 @@ if(file.exists(wd)){
 set.seed(seed)
 
 # make output directory
-if(!file.exists('clustering_results')) dir.create('clustering_results')
-if(!file.exists('misc')) dir.create('misc')
+if(!file.exists("clustering_results")) dir.create("clustering_results")
+if(!file.exists("misc")) dir.create("misc")
 
 ##############################################################################
 # import and process raw data
 ##############################################################################
 # read in raw data
-if(file.exists(ercc.input)){
+if(ercc.input == "none"){
+   writeLines("ERCC molecules not found or too low. All secondary analyses are based only on endogenous genes.")
+} else if(file.exists(ercc.input)){
   ercc.orig <- read.csv(ercc.input, header=T, check.names=F)
   colnames(ercc.orig) <- c('ERCC_ID', 'input_2ul', 'input_1ul')
 } else{
@@ -109,11 +122,13 @@ writeLines(paste0("Number of valid cell indices: ", as.character(n.cell)))
 # prepare datasets required by scran
 ##############################################################################
 # ERCC spike-in input information; drop spike-in's with < 1 expected copy
-SpikeInfo <- select(ercc.orig, ERCC_ID, input_1ul) %>%
-  rename(SpikeID = ERCC_ID, SpikeInput = input_1ul) %>% 
-  filter(SpikeInput >= 500) %>% 
-  mutate(SpikeInput = round(SpikeInput))
-SpikeInput <- SpikeInfo$SpikeInput
+if(ercc.input != "none"){
+  SpikeInfo <- select(ercc.orig, ERCC_ID, input_1ul) %>%
+    rename(SpikeID = ERCC_ID, SpikeInput = input_1ul) %>% 
+    filter(SpikeInput >= 500) %>% 
+    mutate(SpikeInput = round(SpikeInput))
+  SpikeInput <- SpikeInfo$SpikeInput
+}
 
 # gene-cell UMI counts matrix
 Counts <- as.matrix(dat[,2:ncol(dat)])
@@ -121,7 +136,10 @@ class(Counts) <- 'numeric'
 rownames(Counts) <- dat$gene
 
 # remove un-used spike-in's 
-Counts <- Counts[!grepl('ERCC', rownames(Counts)) | rownames(Counts) %in% SpikeInfo$SpikeID, ]
+if(ercc.input != "none"){
+  Counts <- Counts[!grepl('ERCC', rownames(Counts)) | rownames(Counts) %in% SpikeInfo$SpikeID, ]
+} 
+
 
 # vector to indicate endogenous genes vs ERCC spike-in
 Tech <- ifelse(grepl('ERCC', rownames(Counts)), TRUE, FALSE)
@@ -135,10 +153,10 @@ totalEndoUMIs <- apply(Counts[!Tech, ], 2, sum)
 pctEndoUMIs <- totalEndoUMIs / totalUMIs
 pctEndoUMIs.df <- data.frame(pctEndoUMIs)
 p.pctEndoUMIs <- ggplot(pctEndoUMIs.df, aes(x=pctEndoUMIs)) + geom_density() + xlab('% of UMIs mapped to endogenous genes')
-ggsave(paste0('clustering_results/', run.id, '.pct_endoGene_UMI.png'), dpi=300, height=7, width=7)
+ggsave(paste0('misc/', run.id, '.pct_endoGene_UMI.png'), dpi=300, height=7, width=7)
 
 # relative log expression (RLE) plot for ERCC; make plot if <= 96 cells. TODO: what to do when n>96? 
-if(n.cell <= 96){
+if(ercc.input != "none" & n.cell <= 96){
   ercc <- Counts[Tech, ]
   medCnt <- apply(ercc, 1, median)
   f <- function(x) log(x[1:length(x)] / x[length(x)])
@@ -151,7 +169,7 @@ if(n.cell <= 96){
   df %>% mutate(cell_ID = factor(cell_ID, levels=df.med$cell_ID)) %>% 
     ggplot(aes(x=cell_ID, y=cnt)) + geom_boxplot() + geom_hline(yintercept=0, linetype='dashed') +
     theme(axis.text.x = element_text(angle = 270, hjust = 1)) + ylab('Relative Log Expression (ERCC)') + xlab('Cell ID') -> p.rle
-  ggsave(paste0('clustering_results/', run.id, '.RLE_ERCC.png'), dpi=400, height=8.94, width=15)
+  ggsave(paste0('clustering_results/', run.id, '.step1_RLE_ERCC.png'), dpi=400, height=8.94, width=15)
 }
 
 # observed vs expected ERCC; averaged across all cells
@@ -176,7 +194,7 @@ cellsToDrop <- filter(qc, keep == FALSE)$Cell
 newCounts <- Counts[,!colnames(Counts) %in% cellsToDrop]
 
 # final overall quality check 
-final.check <- overall.check(newCounts)
+final.check <- overall.check(newCounts, ercc.input)
 newCounts <- final.check$new.table
 cellsToDrop <- c(cellsToDrop, final.check$cell.drop)
 genesToDrop <- final.check$gene.drop
@@ -190,8 +208,6 @@ qc.drop <- filter(qc, !keep) %>% select(-keep)
 # update counts data
 newTech <- ifelse(grepl('ERCC', rownames(newCounts)), TRUE, FALSE)
 spikeInclude <- rownames(newCounts)[newTech]
-newSpikeInfo <- SpikeInfo[SpikeInfo$SpikeID %in% spikeInclude,]
-newSpikeInput <- newSpikeInfo$SpikeInput
 
 # write dropped cells and genes to file
 write.csv(qc.drop, paste0('clustering_results/', run.id, '.cell_dropped.csv'), row.names=F, quote=F)
@@ -211,46 +227,76 @@ isSpike(sce, "ERCC") <- grep("^ERCC", rownames(sce))
 ##############################################################################
 # normalization 
 ##############################################################################
-sce <- computeSpikeFactors(sce, general.use=T, type='ERCC')
-sce <- scater::normalize(sce, return_log = FALSE)
+if(ercc.input != "none"){
+  sce <- computeSpikeFactors(sce, general.use=T, type='ERCC')
+  sce <- scater::normalize(sce, return_log = FALSE)
+} else{
+  # when there is no or too low ERCC counts, normalize by total molecules (Zheng et al 2017, 10X)
+  geneCounts <- newCounts[!newTech,]
+  normlizedCounts <- newCounts 
+  totalUMIperCell <- colSums(geneCounts)
+  if(!all(totalUMIperCell > 0)){
+    stop("Not all remaining cells have positive total UMIs. ")
+  } 
+  normTotalUMIperCell <- totalUMIperCell / median(totalUMIperCell)
+  for(i in 1:nrow(normlizedCounts)){
+    if(!newTech[i]){
+      normlizedCounts[i,] <- normlizedCounts[i,] / normTotalUMIperCell
+    }
+  }
+  normcounts(sce) <- normlizedCounts + 1
+}
 
 # save normalized counts as output
 DenoisedCounts <- normcounts(sce) - 1
-write.csv(DenoisedCounts, paste0('clustering_results/', run.id, '.normalized_UMI.csv'), row.names=T, quote=F)
+write.csv(DenoisedCounts, paste0('clustering_results/', run.id, '.step2_normalized_UMI.csv'), row.names=T, quote=F)
 
 ##############################################################################
-# highly variable genes 
+# highly variable genes - only when ERCC spike-ins are available
 ##############################################################################
 # variance decomposition
-logcounts(sce) <- log(normcounts(sce))
-# estimate baseline mean-variance relationship based on ALL genes and spike-ins;
-fit <- trendVar(sce, parametric = F, use.spikes = NA, assay.type = 'logcounts')
-VarDecomp <- decomposeVar(sce, fit, assay.type = 'logcounts', get.spikes=FALSE) %>%
-  rownames_to_column() %>% 
-  mutate(bio = max(0, bio), BioVarGlobal = bio / (bio + tech), TechVarGlobal = tech / (bio + tech)) %>%
-  arrange(desc(BioVarGlobal)) %>% select(c(rowname, BioVarGlobal, TechVarGlobal)) %>% 
-  rename(GeneNames = rowname)
-write.csv(VarDecomp, paste0('clustering_results/', run.id, '.Variance_decomposition.csv'), row.names=F, quote=F)
+if(ercc.input != "none"){
+   logcounts(sce) <- log(normcounts(sce))
+   # estimate baseline mean-variance relationship 
+   fit <- trendVar(sce, parametric = FALSE, use.spikes = NA, assay.type = 'logcounts')
 
-# HVG defined as genes above threshold or top 20% biological variation percentage (minimum 10 genes), to avoid edge cases when only a few genes meet threshold
-HVG1 <- filter(VarDecomp, BioVarGlobal >= hvg.thres)$GeneNames
-var20p <- max(10, ceiling(0.2 * nrow(VarDecomp)))
-HVG2 <- VarDecomp$GeneNames[1:var20p] 
-HVG <- unique(c(HVG1, HVG2))
-df.HVG <- data.frame(HVG)
-write.csv(df.HVG, paste0('clustering_results/', run.id, '.highly_variable_genes.csv'), row.names=F, quote=F)
+   VarDecomp <- decomposeVar(sce, fit, assay.type = 'logcounts', get.spikes=FALSE) %>%
+     rownames_to_column() %>% 
+     mutate(bio = max(0, bio), BioVarGlobal = bio / (bio + tech), TechVarGlobal = tech / (bio + tech)) %>%
+     arrange(desc(BioVarGlobal)) %>% select(c(rowname, BioVarGlobal, TechVarGlobal)) %>% 
+     rename(GeneNames = rowname)
+   write.csv(VarDecomp, paste0('clustering_results/', run.id, '.step3_variance_decomposition.csv'), row.names=F, quote=F)
 
-# log-log plot of inter-cell CV vs. mean transcripts per cell
-tmpCounts <- data.frame(counts(sce), row.names = rownames(sce))
-meanUMI <- apply(newCounts, 1, mean)
-CV <- apply(newCounts, 1, function(x) sd(x) / mean(x))
-tmpCounts %>% mutate(meanUMI = meanUMI, CV = CV, 
-                     geneType = factor(ifelse(isSpike(sce), 'Spike-in', ifelse(rownames(sce) %in% HVG, 'HVG', 'Others')), levels=c('HVG', 'Spike-in', 'Others'))) %>% 
-  ggplot(aes(x=log(meanUMI), y=log(CV), colour=geneType)) + geom_point() + theme_bw() + xlab('log(mean expression)') + ylab('log(CV)') +
-  geom_abline(slope=-0.5, intercept=0, linetype='dashed') + scale_color_manual(values=c('red', 'blue', 'gray')) -> p.cv_mean
-ggsave(paste0('clustering_results/', run.id, '.CV_vs_mean_expression.png'), dpi=300, height=7, width=7)
+   # HVG defined as genes above threshold or top 20% biological variation percentage (minimum 10 genes), to avoid edge cases when only a few genes meet threshold
+   HVG1 <- filter(VarDecomp, BioVarGlobal >= hvg.thres)$GeneNames
+   var20p <- max(10, ceiling(0.2 * nrow(VarDecomp)))
+   HVG2 <- VarDecomp$GeneNames[1:var20p] 
+   HVG <- unique(c(HVG1, HVG2))
+   df.HVG <- data.frame(HVG)
+   write.csv(df.HVG, paste0('clustering_results/', run.id, '.step3_highly_variable_genes.csv'), row.names=F, quote=F)
 
-
+   # log-log plot of inter-cell CV vs. mean transcripts per cell
+   tmpCounts <- data.frame(counts(sce), row.names = rownames(sce))
+   meanUMI <- apply(newCounts, 1, mean)
+   CV <- apply(newCounts, 1, function(x) sd(x) / mean(x))
+   if(ercc.input != "none"){
+     tmpCounts %>% mutate(meanUMI = meanUMI, CV = CV, 
+                          geneType = factor(ifelse(isSpike(sce), 'Spike-in', ifelse(rownames(sce) %in% HVG, 'HVG', 'Others')), levels=c('HVG', 'Spike-in', 'Others'))) %>% 
+       ggplot(aes(x=log(meanUMI), y=log(CV), colour=geneType)) + geom_point() + theme_bw() + xlab('log(mean expression)') + ylab('log(CV)') +
+       geom_abline(slope=-0.5, intercept=0, linetype='dashed') + scale_color_manual(values=c('red', 'blue', 'gray')) -> p.cv_mean
+     ggsave(paste0('clustering_results/', run.id, '.step3_CV_vs_mean_expression.png'), dpi=300, height=7, width=7)
+   } else{
+     tmpCounts %>% mutate(meanUMI = meanUMI, CV = CV, 
+                          geneType = factor(ifelse(rownames(sce) %in% HVG, 'HVG', 'Others'), levels=c('HVG', 'Others'))) %>% 
+       ggplot(aes(x=log(meanUMI), y=log(CV), colour=geneType)) + geom_point() + theme_bw() + xlab('log(mean expression)') + ylab('log(CV)') +
+       geom_abline(slope=-0.5, intercept=0, linetype='dashed') + scale_color_manual(values=c('red', 'gray')) -> p.cv_mean
+     ggsave(paste0('clustering_results/', run.id, '.step3_CV_vs_mean_expression.png'), dpi=300, height=7, width=7)
+   }
+} else{
+   # if no ERCC, HVG = all endogenous genes
+   HVG <- rownames(sce)[!newTech]
+}
+  
 ##############################################################################
 # cell clustering and visualization based on HVG
 ##############################################################################
@@ -296,7 +342,7 @@ o.prior <- scde.expression.prior(models = o.ifm, counts = df.DenoisedCounts, len
 
 for(k in 2:k.max){
   # create subdirectory to store outputs
-  subdir <- ifelse(k==k.def, paste0("clustering_results/k_", k, "_default"), paste0("clustering_results/k_", k))
+  subdir <- ifelse(k==k.def, paste0("clustering_results/k=", k, "_default"), paste0("clustering_results/k=", k))
   if(!file.exists(subdir)) dir.create(subdir)
   
   # consistent colors in clustering plot and heatmap
