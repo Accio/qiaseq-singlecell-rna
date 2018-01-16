@@ -146,13 +146,14 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
     new_metric = 'reads dropped, cell has no genes with more than 5 UMIs'    
     ## Get UMIs and reads used from the cells which were dropped
     for cell in cells_dropped:
-        if len(cell.split('_')) == 3:
-            sample_index = '_'.join(cell.split('_')[0:2])
-            cell_index = cell.split('_')[-1]
+        if len(cell.split('_')) == 2:
+            sample_index,cell_index = cell.split('_')            
         else:    
-            sample_index,cell_index = cell.split('_')
-        read_stats_file = glob.glob(os.path.join(output_dir,'{sample_index}/Cell{cell_index}_*/read_stats.txt'.format(sample_index=sample_index,cell_index=cell_index)))[0]
-        cell_stats_file = glob.glob(os.path.join(output_dir,'{sample_index}/Cell{cell_index}_*/*_demultiplex_stats.txt'.format(sample_index=sample_index,cell_index=cell_index)))[0]
+            sample_index = '_'.join(cell.split('_')[0:-1])
+            cell_index = cell.split('_')[-1]
+
+        read_stats_file = glob.glob(os.path.join(output_dir,'*/{sample_index}/Cell{cell_index}_*/read_stats.txt'.format(sample_index=sample_index,cell_index=cell_index)))[0]
+        cell_stats_file = glob.glob(os.path.join(output_dir,'*/{sample_index}/Cell{cell_index}_*/*_demultiplex_stats.txt'.format(sample_index=sample_index,cell_index=cell_index)))[0]
         
         cell_check = os.path.dirname(read_stats_file).split('/')[-1].split('_')[0].strip('Cell')
         ## Check to make sure we got the correct file
