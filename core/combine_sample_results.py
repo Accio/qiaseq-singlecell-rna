@@ -102,9 +102,7 @@ def read_cell_file(cfile,metric_dict,is_lowinput):
             if contents[1:] == ['0']*len(contents[1:]): ## Skip cells with all zeros
                 continue
             cell= contents[0]
-            for i,metric in enumerate(metrics[1:]):
-                if metric == "reads used, aligned to ERCC" and is_lowinput=="1":
-                    continue
+            for i,metric in enumerate(metrics[1:]):                
                 metric_dict[cell][metric]= contents[i+1]
 
     return metric_dict
@@ -199,8 +197,6 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
     with open(outfile,'w') as OUT:
         i=0
         for metric in sample_metrics:
-            if metric in ["reads used, aligned to ERCC, multiple loci","reads used, aligned to ERCC, unique loci","reads dropped, aligned to ERCC, multiple loci"] and is_lowinput=="1":
-                continue
             if i == 0:
                 header = 'Samples\t'+'\t'.join(sample_metrics[metric].keys())
                 OUT.write(header+'\n')
