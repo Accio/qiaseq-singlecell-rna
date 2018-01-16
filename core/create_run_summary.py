@@ -1,21 +1,8 @@
 import os
+import numpy as np
 from xlsxwriter.workbook import Workbook
 from collections import defaultdict
 import ConfigParser
-
-def get_sample_names(samples_cfg):
-    ''' Return sample names
-
-    :param str samples_cfg: the samples cfg file
-    :returns a comma seperated string of sample names
-    :rtype str
-    '''
-    parser = ConfigParser.ConfigParser()
-    parser.read(self.samples_cfg)
-    ret = []
-    for section in parser.sections():
-        ret.append(section)
-    return ','.join(ret)
 
 def read_sample_metrics(sample_metrics_file):
     '''
@@ -56,41 +43,47 @@ def read_cell_metrics(cell_metrics_file):
 def calc_stats_gene_count(combined_gene_count_file):
     '''
     '''
-    cell_metrics = lambda(defaultdict:defaultdict(int))
+    cell_metrics = defaultdict(lambda:defaultdict(int))
     temp = defaultdict(int)
     
     with open(combined_gene_count_file,'r') as IN:
-        contents = line.strip('\n').split('\t')        
-        if line.startswith('gene id'):        
-            cells = contents[6:]
-            continue
-        if contents[1].startswith('ERCC'):
-            met1 = 'num_ercc'
-            met2 = 'umis_ercc'
-        else:
-            met1 = 'num_genes'
-            met2 = 'umis_genes'
+        for line in IN:
+            contents = line.strip('\n').split('\t')        
+            if line.startswith('gene id'):        
+                cells = contents[6:]
+                continue
 
-        if any(int(e) > 0 for e in contents[6:]):
-            temp[met1]+=1
-            temp[met2] = sum(int(e) for e in contents[6:])
-            vals = contents[6:]
-            for i in range(len(cells)):
-                if int(val[i]) != 0:
-                    cell_metrics[cells[i]][met1]+= 1                
-                cell_metrics[cells[i]][met2]+= int(val[i])
-                cell_metrics[cells[i]]['UMIs']+= int(val[i])
+            if contents[1].startswith('ERCC'):
+                met1 = 'num_ercc'
+                met2 = 'umis_ercc'
+            else:
+                met1 = 'num_genes'
+                met2 = 'umis_genes'
+
+            if any(int(e) > 0 for e in contents[6:]):
+                temp[met1]+=1
+                temp[met2] = sum(int(e) for e in contents[6:])
+                vals = contents[6:]
+                for i in range(len(cells)):
+                    if int(val[i]) != 0:
+                        cell_metrics[cells[i]][met1]+= 1                
+                    cell_metrics[cells[i]][met2]+= int(val[i])
+                    cell_metrics[cells[i]]['UMIs']+= int(val[i])
                 
     return (cell_metrics, temp['num_genes'], temp['num_ercc'], temp['umis_genes'], temp['umis_ercc'])
 
 def calc_median_cell_metrics(cell_metrics,metric,cells_to_drop=[]):
-    '''
+    ''' Calculate median across all cells for a given metric
+    :param dict cell_metrics: dictionary of metrics for each cell
+    :param str metric: the metric to calculate the median for
+    :param list: cells_to_drop: account for cell droppings, i.e. which cells to 
+                                ignore when calculating the median
     '''
     for cell in cell_metrics:
         if cell not in cells_to_drop:
             temp.append(cell_metrics[cell][metric])
 
-    return median(temp)
+    return int(np.median(temp))
     
 def is_gzip_empty(gzipfile):
     ''' Helper function to check if a gzip file is empty
@@ -116,7 +109,40 @@ def get_cells_demultiplexed(run_id):
             counter+=1
     return counter
 
-def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,samples_cfg,sample_metrics_file,cell_metrics_file,clustering_cells_dropped,metrics_from_countfile,normalization,hvg):
+
+def read_clustering_cells_dropped(cells_dropped_file):
+    '''
+    :param str cells_dropped_file: the file path for the cells dropped from the clustering script
+    :returns a list of cells dropped
+    :rtype list
+    '''
+    ret = []
+    with open(cells_dropped_file,'r') as IN:
+        for line in IN:
+            contents=line.strip('\n').split(',')
+            if line.startswith('Cells'):
+                continue
+            ret.append(contents[0])
+    return ret
+
+def get_sample_names(samples_cfg):
+    ''' Return sample names
+
+    :param str samples_cfg: the samples cfg file
+    :returns a comma seperated string of sample names
+    :rtype str
+    '''
+    parser = ConfigParser.ConfigParser()
+    parser.read(self.samples_cfg)
+    ret = []
+    for section in parser.sections():
+        ret.append(section)
+    return ','.join(ret)
+
+def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
+                      samples_cfg,sample_metrics_file,cell_metrics_file,
+                      cells_dropped_file,metrics_from_countfile,
+                      normalization_method,hvg_method):
     '''
     :param str output_excel: the output excel file path
     :param bool has_clustering_run: whether clustering was performed for this run
@@ -124,6 +150,12 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,sam
     :param str seqtype: the library/protocol type, i.e. targeted, poly-A transcriptome, drop-seq 
     :param str species: the species name, i.e. Human, Mouse, Rat
     :param str samples_cfg: the config file with sample level info like sample name
+    :param str sample_metrics_file: the sample metrics file
+    :param str cell_metrics_file: the cell metrics file
+    :param str cells_dropped_file: file with cells dropped in the clustering script
+    :param tuple metrics_from_countfile: metric stats obtained from the gene count matrix
+    :param str normalization_method: the normalization scheme used in the clustering script
+    :param str hvg_method: the highly variable gene selection method used    
     '''
     cell_metrics_countfile,num_genes,num_ercc,num_umis_genes,num_umis_ercc = metrics_from_countfile
     
@@ -160,16 +192,16 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,sam
     reads_total = aggregated_metrics['reads total']/2
     for met in aggregated_metrics:
         if met.startswith('reads used'):
-            reads_used+ = aggregated_metrics[met]
+            reads_used += aggregated_metrics[met]
 
     umis = aggregated_metrics['total UMIs']
     umis_endo = num_umis_genes
     umis_ercc_controls = num_umis_ercc
     cells_used = len(cell_metrics.keys())
-    
+    cells_to_drop = []
     ## Account for cell droppings in clustering stage if required
     if has_clustering_run:
-        cells_to_drop = None ## Need to implement this
+        cells_to_drop = read_clustering_cells_dropped(cells_dropped_file)
         cells_used = cells_used - len(cells_to_drop)
         for cell in cells_to_drop:
             for met in cell_metrics[cell]:
@@ -232,8 +264,8 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,sam
     
     if not is_low_input:
         worksheet.write("A26","Expression analysis",bold)
-        worksheet.write_row(["UMI count normalization",normalization])
-        worksheet.write_row(["Highly variable gene selection",hvg])
+        worksheet.write_row(["UMI count normalization",normalization_method])
+        worksheet.write_row(["Highly variable gene selection",hvg_method])
         worksheet.write_row(["Cell clustering","PCA and K-means clustering"])
         worksheet.write_row(["Differential expression analysis,SCDE"])
     
