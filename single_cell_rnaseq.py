@@ -18,7 +18,7 @@ from count_mt import count_umis,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files
 from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics,clean_for_clustering,check_metric_counts
 from create_excel_sheet import write_excel_workbook
-from create_run_summary import is_gzip_empty, write_run_summary
+from create_run_summary import is_gzip_empty, write_run_summary, calc_stats_gene_count, calc_median_cell_metrics
 from create_annotation_tables import create_gene_tree,create_gene_hash
 
 ## Some globals to cache across tasks
@@ -650,6 +650,7 @@ class ClusteringAnalysis(luigi.Task):
         cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc = calc_stats_gene_count(self.combined_count_file)
         median_ercc = calc_median_cell_metrics(cell_stats,'umis_ercc')        
 	## Run clustering analysis
+        
         if median_ercc < 100:
             logger.info("Running scran script with no ercc normalization")
             run_cmd(self.cmd_scran_low_ercc)
@@ -659,7 +660,7 @@ class ClusteringAnalysis(luigi.Task):
             try:
                 run_cmd(self.cmd_basics)
                 normalization = "BASiCS"
-                hvg = "scran"
+                hvg = "BASiCS"
             except subprocess.CalledProcessError as e1:
                 logger.info("Failed to run BASiCS based clustering : \n{e1}".format(e1=e1))
                 if e1.returncode == 99: ## MCMC failed to converge
@@ -677,15 +678,16 @@ class ClusteringAnalysis(luigi.Task):
                         raise(Exception(e2))
                 else: ## Raise Exception if failed for reasons other than MCMC
                     raise(Exception(e1))
-
+        
         ## Create Run level summary file
         metrics_from_countfile = (cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc)
         clustering_out = os.path.join(self.output_dir,'secondary_analysis')
-        cells_dropped_file = glob.glob(os.path.join(clustering_out,'*.cell_dropped.csv'))
-        if len(cells_dropped_file) != 1:
+        temp = glob.glob(os.path.join(clustering_out,'*.cell_dropped.csv'))
+        if len(temp) != 1:            
             raise Exception("Could not find the cells_dropped_file correctly !")
+        cells_dropped_file = temp[0]
         
-        write_run_summary(self.run_summary_file,True,self.run_id,config().seqtype,config().species,self.samples_cfg,self.sample_metrics_file,self.cell_metrics_file,cells_dropped_file,metrics_from_countfile,normalization,hvg)
+        write_run_summary(self.run_summary_file,True,self.runid,config().seqtype,config().species,self.samples_cfg,self.combined_sample_metrics_file,self.combined_cell_metrics_file,cells_dropped_file,metrics_from_countfile,normalization,hvg)
         
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
