@@ -583,7 +583,8 @@ class ClusteringAnalysis(luigi.Task):
         self.primary_dir = os.path.join(self.output_dir,"primary_analysis")        
         self.combined_count_file = os.path.join(self.primary_dir,'{}.umi_counts.gene.{pcatn}.txt'.format(self.runid,pcatn=config().catalog_number))
         self.combined_cell_metrics_file = os.path.join(self.primary_dir,'{}.metrics.by_cell_index.txt'.format(self.runid))
-        self.combined_sample_metrics_file = os.path.join(self.primary_dir,'{}.metrics.by_sample_index.txt'.format(self.runid))        
+        self.combined_sample_metrics_file = os.path.join(self.primary_dir,'{}.metrics.by_sample_index.txt'.format(self.runid))
+        self.run_summary_file = os.path.join(self.output_dir,'QIAseqUltraplexRNA_{}_run_summary.xlsx'.format(self.runid))        
         self.logfile = os.path.join(self.primary_dir,'logs/')
         self.script_path_basics =  os.path.join(os.path.dirname(
             os.path.realpath(__file__)),'core/secondary_analysis_pipeline_BASiCS.R')
@@ -662,8 +663,8 @@ class ClusteringAnalysis(luigi.Task):
                     try:
                         normalization = "scran"
                         hvg = "scran"
-                        clustering_out = os.path.join(self.output_dir,'clustering_results')
-                        misc_out = os.path.join(self.output_dir,'misc')
+                        clustering_out = os.path.join(self.output_dir,'secondary_analysis')
+                        misc_out = os.path.join(clustering_out,'misc')
                         if os.path.exists(clustering_out):
                             run_cmd("mv {old} {new}".format(old=clustering_out,new=clustering_out+"_basics_failed"))
                         if os.path.exists(misc_out):
@@ -676,6 +677,11 @@ class ClusteringAnalysis(luigi.Task):
 
         ## Create Run level summary file
         metrics_from_countfile = (cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc)
+        clustering_out = os.path.join(self.output_dir,'secondary_analysis')
+        cells_dropped_file = glob.glob(os.path.join(clustering_out,'*.cell_dropped.csv'))
+        if len(cells_dropped_file) != 1:
+            raise Exception("Could not find the cells_dropped_file correctly !")
+        
         write_run_summary(self.run_summary_file,True,self.run_id,config().seqtype,config().species,self.samples_cfg,self.sample_metrics_file,self.cell_metrics_file,cells_dropped_file,metrics_from_countfile,normalization,hvg)
         
         with open(self.verification_file,'w') as IN:
@@ -713,6 +719,7 @@ class WriteExcelSheet(luigi.Task):
         self.combined_cell_metrics_file = os.path.join(self.primary_dir,'{}.metrics.by_cell_index.txt'.format(self.runid))
         self.combined_sample_metrics_file = os.path.join(self.primary_dir,'{}.metrics.by_sample_index.txt'.format(self.runid))	
         self.combined_workbook = os.path.join(self.primary_dir,'QIAseqUltraplexRNA_{}.xlsx'.format(self.runid))
+        self.run_summary_file = os.path.join(self.output_dir,'QIAseqUltraplexRNA_{}_run_summary.xlsx'.format(self.runid))
         ## The verification file for this task
         self.target_dir = os.path.join(self.output_dir,'targets')
         if not os.path.exists(self.target_dir):
@@ -740,6 +747,11 @@ class WriteExcelSheet(luigi.Task):
         else:
             catalog_number = config().catalog_number
         write_excel_workbook(self.files_to_write,self.combined_workbook,catalog_number,config().species)
+        ## Create Run level summary file
+        cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc = calc_stats_gene_count(self.combined_count_file)
+        metrics_from_countfile = (cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc)        
+        write_run_summary(self.run_summary_file,False,self.run_id,config().seqtype,config().species,self.samples_cfg,self.sample_metrics_file,self.cell_metrics_file,None,metrics_from_countfile,None,None)
+        
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
         logger.info("Finished Task: {x} {y}".format(x='WriteExcelSheet',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
