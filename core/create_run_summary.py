@@ -5,6 +5,7 @@ from collections import defaultdict
 import ConfigParser
 import glob
 import gzip
+from merge_mt_files import float_to_string
 
 def read_sample_metrics(sample_metrics_file):
     '''
@@ -35,7 +36,7 @@ def read_cell_metrics(cell_metrics_file):
                 metrics = contents[1:]
                 continue
             contents = line.strip('\n').split('\t')
-            cell_id = contents[0]
+            cell = contents[0]
             vals = contents[1:]
             for i in range(len(metrics)):
                 cell_metrics[cell][metrics[i]] = int(vals[i])
@@ -63,15 +64,17 @@ def calc_stats_gene_count(combined_gene_count_file):
                 met2 = 'umis_genes'
 
             if any(int(e) > 0 for e in contents[6:]):
-                temp[met1]+=1
-                temp[met2] = sum(int(e) for e in contents[6:])
+                temp[met1] += 1
+                temp[met2] += sum(int(e) for e in contents[6:])
                 vals = contents[6:]
                 for i in range(len(cells)):
-                    if int(val[i]) != 0:
+                    if int(vals[i]) != 0:
                         cell_metrics[cells[i]][met1]+= 1                
-                    cell_metrics[cells[i]][met2]+= int(val[i])
-                    cell_metrics[cells[i]]['UMIs']+= int(val[i])
-                
+                    cell_metrics[cells[i]][met2]+= int(vals[i])
+                    cell_metrics[cells[i]]['umis']+= int(vals[i])
+            else:
+                print contents[0:6]
+
     return (cell_metrics, temp['num_genes'], temp['num_ercc'], temp['umis_genes'], temp['umis_ercc'])
 
 def calc_median_cell_metrics(cell_metrics,metric,cells_to_drop=[]):
@@ -81,6 +84,7 @@ def calc_median_cell_metrics(cell_metrics,metric,cells_to_drop=[]):
     :param list: cells_to_drop: account for cell droppings, i.e. which cells to 
                                 ignore when calculating the median
     '''
+    temp = []
     for cell in cell_metrics:
         if cell not in cells_to_drop:
             temp.append(cell_metrics[cell][metric])
@@ -105,7 +109,7 @@ def get_cells_demultiplexed(run_id):
     '''
     '''
     counter=0
-    search_path = os.path.join("/home/qiauser/{run_id}/primary_analysis/*/*/*.fastq.gz")
+    search_path = os.path.join("/home/qiauser/{run_id}/primary_analysis/*/*/*.fastq.gz".format(run_id=run_id))
     for fastq in glob.glob(search_path):
         if not is_gzip_empty(fastq):
             counter+=1
@@ -135,7 +139,7 @@ def get_sample_names(samples_cfg):
     :rtype str
     '''
     parser = ConfigParser.ConfigParser()
-    parser.read(self.samples_cfg)
+    parser.read(samples_cfg)
     ret = []
     for section in parser.sections():
         ret.append(section)
@@ -168,9 +172,8 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
     samples = get_sample_names(samples_cfg)
     
     worksheet.write("A1","Run level summary",bold)
-    worksheet.write_row(1,0,["Job identifier",run_id])
-    worksheet.write_row(2,0,["Read set names",samples])
-    worksheet.write_row(3,0,["Library protocol",seqtype])
+    worksheet.write_row(1,0,["Job identifier",run_id])    
+    worksheet.write_row(2,0,["Library protocol",seqtype.title()])
 
     if species.upper() == 'HUMAN':
         gencode = "Gencode Release 23"
@@ -181,17 +184,18 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
     else:
         raise Exception("Unsupported species ! {}".format(species))
     
-    worksheet.write_row(4,0,["Reference genome",genome])
-    worksheet.write_row(5,0,["Transcriptome models",gencode])
-    worksheet.write_row(6,0,["Read mapping","STAR version 2.5.3a"])
+    worksheet.write_row(3,0,["Reference genome",genome])
+    worksheet.write_row(4,0,["Transcriptome models",gencode])
+    worksheet.write_row(5,0,["Read mapping","STAR version 2.5.3a"])
     
-    worksheet.write_row(7,0,[]) ## Blank
+    worksheet.write_row(6,0,[]) ## Blank
 
     aggregated_metrics = read_sample_metrics(sample_metrics_file)
     cell_metrics = read_cell_metrics(cell_metrics_file)
     cells_demultiplexed = get_cells_demultiplexed(run_id)
     
-    reads_total = aggregated_metrics['reads total']/2
+    reads_total = aggregated_metrics['reads total']
+    reads_used = 0
     for met in aggregated_metrics:
         if met.startswith('reads used'):
             reads_used += aggregated_metrics[met]
@@ -199,76 +203,63 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
     umis = aggregated_metrics['total UMIs']
     umis_endo = num_umis_genes
     umis_ercc_controls = num_umis_ercc
+    
     cells_used = len(cell_metrics.keys())
     cells_to_drop = []
-    ## Account for cell droppings in clustering stage if required
+
+    ## Account for cell droppings in the clustering step, if required
     if has_clustering_run:
         cells_to_drop = read_clustering_cells_dropped(cells_dropped_file)
         cells_used = cells_used - len(cells_to_drop)
         for cell in cells_to_drop:
             for met in cell_metrics[cell]:
-                if met.startswith('reads total'):
-                    reads_total = reads_total - cell_metrics[cell][met]
                 if met.startswith('reads used'):
                     reads_used = reads_used - cell_metrics[cell][met]
 
             for met in cell_metrics_countfile[cell]:
                 if met == 'umis':
-                    umis = umis_ercc_controls - cell_metrics_countfile['umis']
-                if met == 'umis_ercc':
-                    umis_ercc_controls = umis_ercc_controls - cell_metrics_countfile['umis_ercc']
-                if met == 'umis_genes':
-                    umis_endo = umis_endo - cell_metrics_countfile['umis_genes']
-                if met == 'num_genes':
-                    num_genes = num_genes - cell_metrics_countfile['num_genes']
-                if met == 'num_ercc':
-                    num_ercc = num_genes - cell_metrics_countfile['num_ercc']
-
+                    umis = umis - cell_metrics_countfile[cell]['umis']
+                elif met == 'umis_ercc':
+                    umis_ercc_controls = umis_ercc_controls - cell_metrics_countfile[cell]['umis_ercc']
+                elif met == 'umis_genes':
+                    umis_endo = umis_endo - cell_metrics_countfile[cell]['umis_genes']
+                elif met == 'num_genes':
+                    num_genes = num_genes
+                elif met == 'num_ercc':
+                    num_ercc = num_ercc
+                    
     ## Compute median values
     median_reads_per_cell = calc_median_cell_metrics(cell_metrics,'reads total',cells_to_drop)
     median_umis_per_cell = calc_median_cell_metrics(cell_metrics,'UMIs',cells_to_drop)
     median_genes_per_cell = calc_median_cell_metrics(cell_metrics_countfile,'num_genes',cells_to_drop)
     
     
-    worksheet.write("A9","UMI and read counts",bold)
-    worksheet.write("A10","Read fragments, total")
-    worksheet.write("B10",reads_total)
-    worksheet.write("A11","Read fragments, used")
-    worksheet.write("B11",reads_used)
-    worksheet.write("A12","Read fragments per UMI")
-    worksheet.write("B12",float(float_to_string(float(reads_used)/umis)))
-    worksheet.write("A13","UMIs")
-    worksheet.write("B13",umis)
-    worksheet.write("A14","UMIs, endogenous genes")
-    worksheet.write("B14",umis_endo)
-    worksheet.write("A15","UMIs, ERCC controls")
-    worksheet.write("B15",umis_ercc_controls)    
+    worksheet.write(7,0,"UMI and read counts",bold)
+    worksheet.write_row(8,0,["Read fragments, total",reads_total])
+    worksheet.write_row(9,0,["Read fragments, used",reads_used])
+    worksheet.write_row(10,0,["Read fragments per UMI",float(float_to_string(float(reads_used)/umis))])
+    worksheet.write_row(11,0,["UMIs",umis])
+    worksheet.write_row(12,0,["UMIs, endogenous genes",umis_endo])
+    worksheet.write_row(13,0,["UMIs, ERCC controls",umis_ercc_controls])
     
-    worksheet.write_row(15,0,[]) ## Blank
+    worksheet.write_row(14,0,[]) ## Blank
 
-    worksheet.write("A17","Cell and gene level summary",bold)
-    worksheet.write("A18","Cells demultiplexed")
-    worksheet.write("B18",cells_demultiplexed)
-    worksheet.write("A19","Cells used")
-    worksheet.write("B19",cells_used)
-    worksheet.write("A20","Median read fragments per cell")
-    worksheet.write("B20",median_reads_per_cell)
-    worksheet.write("A21","Median UMIs per cell")
-    worksheet.write("B21",median_umis_per_cell)
-    worksheet.write("A22","Median genes per cell")
-    worksheet.write("B22",median_genes_per_cell)
-    worksheet.write("A23","Total genes detected, all cells")
-    worksheet.write("B23",num_genes)
-    worksheet.write("A23","Total ERCC spike-ins detected, all cells")
-    worksheet.write("B23",num_ercc)    
+    worksheet.write(15,0,"Cell and gene level summary",bold)
+    worksheet.write_row(16,0,["Cells demultiplexed",cells_demultiplexed])
+    worksheet.write_row(17,0,["Cells used",cells_used])
+    worksheet.write_row(18,0,["Median read fragments per cell",median_reads_per_cell])
+    worksheet.write_row(19,0,["Median UMIs per cell",median_umis_per_cell])
+    worksheet.write_row(20,0,["Median genes per cell",median_genes_per_cell])
+    worksheet.write_row(21,0,["Total genes detected, all cells",num_genes])
+    worksheet.write_row(22,0,["Total ERCC spike-ins detected, all cells",num_ercc])
 
     worksheet.write_row(23,0,[])
     
-    if not is_low_input:
-        worksheet.write("A26","Expression analysis",bold)
-        worksheet.write_row(["UMI count normalization",normalization_method])
-        worksheet.write_row(["Highly variable gene selection",hvg_method])
-        worksheet.write_row(["Cell clustering","PCA and K-means clustering"])
-        worksheet.write_row(["Differential expression analysis,SCDE"])
+    if has_clustering_run:
+        worksheet.write(24,0,"Expression analysis",bold)
+        worksheet.write_row(25,0,["UMI count normalization",normalization_method])
+        worksheet.write_row(26,0,["Highly variable gene selection",hvg_method])
+        worksheet.write_row(27,0,["Cell clustering","PCA and K-means clustering"])
+        worksheet.write_row(28,0,["Differential expression analysis","SCDE"])
     
     workbook.close()
