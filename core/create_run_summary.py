@@ -72,8 +72,6 @@ def calc_stats_gene_count(combined_gene_count_file):
                         cell_metrics[cells[i]][met1]+= 1                
                     cell_metrics[cells[i]][met2]+= int(vals[i])
                     cell_metrics[cells[i]]['umis']+= int(vals[i])
-            else:
-                print contents[0:6]
 
     return (cell_metrics, temp['num_genes'], temp['num_ercc'], temp['umis_genes'], temp['umis_ercc'])
 
@@ -172,8 +170,12 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
     samples = get_sample_names(samples_cfg)
     
     worksheet.write("A1","Run level summary",bold)
-    worksheet.write_row(1,0,["Job identifier",run_id])    
-    worksheet.write_row(2,0,["Library protocol",seqtype.title()])
+    worksheet.write_row(1,0,["Job identifier",run_id])
+    if seqtype.upper() == 'WTS':
+        seqtype = 'poly-A-transcriptome'
+    else:
+        seqtype = 'targeted'
+    worksheet.write_row(2,0,["Library protocol",seqtype])
 
     if species.upper() == 'HUMAN':
         gencode = "Gencode Release 23"

@@ -755,7 +755,7 @@ class WriteExcelSheet(luigi.Task):
         ## Create Run level summary file
         cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc = calc_stats_gene_count(self.combined_count_file)
         metrics_from_countfile = (cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc)        
-        write_run_summary(self.run_summary_file,False,self.run_id,config().seqtype,config().species,self.samples_cfg,self.sample_metrics_file,self.cell_metrics_file,None,metrics_from_countfile,None,None)
+        write_run_summary(self.run_summary_file,False,self.runid,config().seqtype,config().species,self.samples_cfg,self.combined_sample_metrics_file,self.combined_cell_metrics_file,None,metrics_from_countfile,None,None)
         
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
