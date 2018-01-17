@@ -163,19 +163,14 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
     '''
     cell_metrics_countfile,num_genes,num_ercc,num_umis_genes,num_umis_ercc = metrics_from_countfile
     
-    workbook = Workbook(output_excel)
-    bold = workbook.add_format({'bold': True})    
-    worksheet = workbook.add_worksheet()
 
     samples = get_sample_names(samples_cfg)
     
-    worksheet.write("A1","Run level summary",bold)
-    worksheet.write_row(1,0,["Job identifier",run_id])
     if seqtype.upper() == 'WTS':
         seqtype = 'poly-A-transcriptome'
     else:
         seqtype = 'targeted'
-    worksheet.write_row(2,0,["Library protocol",seqtype])
+    
 
     if species.upper() == 'HUMAN':
         gencode = "Gencode Release 23"
@@ -186,12 +181,6 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
     else:
         raise Exception("Unsupported species ! {}".format(species))
     
-    worksheet.write_row(3,0,["Reference genome",genome])
-    worksheet.write_row(4,0,["Transcriptome models",gencode])
-    worksheet.write_row(5,0,["Read mapping","STAR version 2.5.3a"])
-    
-    worksheet.write_row(6,0,[]) ## Blank
-
     aggregated_metrics = read_sample_metrics(sample_metrics_file)
     cell_metrics = read_cell_metrics(cell_metrics_file)
     cells_demultiplexed = get_cells_demultiplexed(run_id)
@@ -217,7 +206,7 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
             for met in cell_metrics[cell]:
                 if met.startswith('reads used'):
                     reads_used = reads_used - cell_metrics[cell][met]
-
+                    
             for met in cell_metrics_countfile[cell]:
                 if met == 'umis':
                     umis = umis - cell_metrics_countfile[cell]['umis']
@@ -234,29 +223,76 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
     median_reads_per_cell = calc_median_cell_metrics(cell_metrics,'reads total',cells_to_drop)
     median_umis_per_cell = calc_median_cell_metrics(cell_metrics,'UMIs',cells_to_drop)
     median_genes_per_cell = calc_median_cell_metrics(cell_metrics_countfile,'num_genes',cells_to_drop)
+
+    ## Open the excel file for writing and format the columns
+    workbook = Workbook(output_excel)
+    bold = workbook.add_format({'bold': True})
+    num_fmt = workbook.add_format({'num_format': '#,###'})    
+    worksheet = workbook.add_worksheet()
+    ## Hard coding column width, I highly doubt this will break.
+    ## PCA and K-means clustering or Gencode Release 23 are the longest words in the second column
+    ## Total ERCC spike-ins detected, all cells is the longest word in the first column
+    ## None of the read/umi metrics should ever exceed the length the of these two words
+    ## For e.g. 10,000,000,000 (length 14 including commas is still less than 18 , length of 'Gencode Release 23')
+    worksheet.set_column('A:A',len('Total ERCC spike-ins detected, all cells')+2)
+    if has_clustering_run:
+        worksheet.set_column('B:B',len('PCA and K-means clustering')+2)
+    else:        
+        worksheet.set_column('B:B',len('Gencode Release 23')+2)
+
+    ## Write the summary data    
+    worksheet.write("A1","Run level summary",bold)    
+    worksheet.write_row(1,0,["Job identifier",run_id])
+    worksheet.write_row(2,0,["Library protocol",seqtype])    
+    worksheet.write_row(3,0,["Reference genome",genome])
+    worksheet.write_row(4,0,["Transcriptome models",gencode])
+    worksheet.write_row(5,0,["Read mapping","STAR version 2.5.3a"])
     
-    
+    worksheet.write_row(6,0,[]) ## Blank    
     worksheet.write(7,0,"UMI and read counts",bold)
-    worksheet.write_row(8,0,["Read fragments, total",reads_total])
-    worksheet.write_row(9,0,["Read fragments, used",reads_used])
+    
+    worksheet.write(8,0,"Read fragments, total")
+    worksheet.write_number(8,1,reads_total,num_fmt)
+    
+    worksheet.write(9,0,"Read fragments, used")
+    worksheet.write_number(9,1,reads_used,num_fmt)
+    
     worksheet.write_row(10,0,["Read fragments per UMI",float(float_to_string(float(reads_used)/umis))])
-    worksheet.write_row(11,0,["UMIs",umis])
-    worksheet.write_row(12,0,["UMIs, endogenous genes",umis_endo])
-    worksheet.write_row(13,0,["UMIs, ERCC controls",umis_ercc_controls])
     
-    worksheet.write_row(14,0,[]) ## Blank
-
+    worksheet.write(11,0,"UMIs")
+    worksheet.write_number(11,1,umis,num_fmt)
+    
+    worksheet.write(12,0,"UMIs, endogenous genes")
+    worksheet.write_number(12,1,umis_endo,num_fmt)
+    
+    worksheet.write(13,0,"UMIs, ERCC controls")
+    worksheet.write(13,1,umis_ercc_controls,num_fmt)
+    
+    worksheet.write_row(14,0,[]) ## Blank    
     worksheet.write(15,0,"Cell and gene level summary",bold)
-    worksheet.write_row(16,0,["Cells demultiplexed",cells_demultiplexed])
-    worksheet.write_row(17,0,["Cells used",cells_used])
-    worksheet.write_row(18,0,["Median read fragments per cell",median_reads_per_cell])
-    worksheet.write_row(19,0,["Median UMIs per cell",median_umis_per_cell])
-    worksheet.write_row(20,0,["Median genes per cell",median_genes_per_cell])
-    worksheet.write_row(21,0,["Total genes detected, all cells",num_genes])
-    worksheet.write_row(22,0,["Total ERCC spike-ins detected, all cells",num_ercc])
-
-    worksheet.write_row(23,0,[])
     
+    worksheet.write(16,0,"Cells demultiplexed")
+    worksheet.write_number(16,1,cells_demultiplexed,num_fmt)
+    
+    worksheet.write(17,0,"Cells used")
+    worksheet.write_number(17,1,cells_used,num_fmt)
+    
+    worksheet.write(18,0,"Median read fragments per cell")
+    worksheet.write_number(18,1,median_reads_per_cell,num_fmt)
+    
+    worksheet.write(19,0,"Median UMIs per cell")
+    worksheet.write_number(19,1,median_umis_per_cell,num_fmt)
+    
+    worksheet.write(20,0,"Median genes per cell")
+    worksheet.write_number(20,1,median_genes_per_cell,num_fmt)
+    
+    worksheet.write(21,0,"Total genes detected, all cells")
+    worksheet.write_number(21,1,num_genes,num_fmt)
+    
+    worksheet.write(22,0,"Total ERCC spike-ins detected, all cells")
+    worksheet.write_number(22,1,num_ercc,num_fmt)
+    
+    worksheet.write_row(23,0,[]) ## Blank
     if has_clustering_run:
         worksheet.write(24,0,"Expression analysis",bold)
         worksheet.write_row(25,0,["UMI count normalization",normalization_method])
