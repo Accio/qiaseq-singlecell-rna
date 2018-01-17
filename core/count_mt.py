@@ -262,7 +262,7 @@ def count_umis(gene_hash,primer_bed,tagged_bam,outfile_primer,outfile_gene,metri
                     umi_count_gene = 0
                 total_UMIs+=umi_count_gene                
                 OUT2.write(ensembl_id+"\t"+gene+"\t"+strand+"\t"+str(chrom)+"\t"+str(five_prime)+"\t"+str(three_prime)+"\t"+str(umi_count_gene)+"\n")
-                if not gene.startswith('ERCC'):
+                if not gene.startswith('ERCC') and umi_count_gene > 0:
                     detected_genes+=1
                 seen.append(gene)
                 
