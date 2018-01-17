@@ -211,13 +211,13 @@ newTech <- ifelse(grepl('ERCC', rownames(newCounts)), TRUE, FALSE)
 spikeInclude <- rownames(newCounts)[newTech]
 
 # write dropped cells and genes to file
-write.csv(qc.drop, paste0('secondary_analysis/', run.id, '.cell_dropped.csv'), row.names=F, quote=F)
+write.csv(qc.drop, paste0('secondary_analysis/', run.id, '.step1_dropped_cells.csv'), row.names=F, quote=F)
 writeLines(paste0("Low-quality cells dropped: ", as.character(length(cellsToDrop))))
 writeLines(paste0("Cells for downstream analyses: ", as.character(length(cellsToKeep))))
 
 geneDropped <- data.frame(genesToDrop)
 colnames(geneDropped) <- 'Genes_dropped'
-write.csv(geneDropped, paste0('secondary_analysis/', run.id, '.gene_dropped.csv'), row.names=F, quote=F)
+write.csv(geneDropped, paste0('secondary_analysis/', run.id, '.step1_dropped_genes.csv'), row.names=F, quote=F)
 writeLines(paste0("Low-expression genes dropped: ", as.character(length(genesToDrop))))
 writeLines(paste0("Genes for downstream analyses: ", as.character(length(genesToKeep))))
 
