@@ -312,6 +312,9 @@ pca.res <- prcomp(log.hvg.DenoisedCounts, scale. = T, center=T)
 top.pc <- pca.res$x[,1:n.pc]
 
 # T-SNE based on HVG and log-transformed counts
+temp<-as.integer((nrow(log.hvg.DenoisedCounts)-2)/3)
+perplexity = min(perplexity,temp)
+sprintf("Updated Perplexity to : ",perplexity)
 tsne.hvg <- Rtsne(log.hvg.DenoisedCounts, dims=2, pca=T, perplexity=perplexity, check_duplicates=F, theta=0.0, initial_dims=n.pc)
 tsne.hvg.y <- data.frame(tsne.hvg$Y)
 
