@@ -682,7 +682,7 @@ class ClusteringAnalysis(luigi.Task):
         ## Create Run level summary file
         metrics_from_countfile = (cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc)
         clustering_out = os.path.join(self.output_dir,'secondary_analysis')
-        temp = glob.glob(os.path.join(clustering_out,'*.cell_dropped.csv'))
+        temp = glob.glob(os.path.join(clustering_out,'*.step1_dropped_cells.csv'))
         if len(temp) != 1:            
             raise Exception("Could not find the cells_dropped_file correctly !")
         cells_dropped_file = temp[0]
