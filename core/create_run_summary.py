@@ -56,7 +56,7 @@ def calc_stats_gene_count(combined_gene_count_file):
                 cells = contents[6:]
                 continue
 
-            if contents[1].startswith('ERCC'):
+            if contents[1].startswith('ERCC-'):
                 met1 = 'num_ercc'
                 met2 = 'umis_ercc'
             else:
