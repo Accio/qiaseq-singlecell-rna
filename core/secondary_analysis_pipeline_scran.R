@@ -314,7 +314,7 @@ top.pc <- pca.res$x[,1:n.pc]
 # T-SNE based on HVG and log-transformed counts
 temp<-as.integer((nrow(log.hvg.DenoisedCounts)-2)/3)
 perplexity = min(perplexity,temp)
-sprintf("Updated Perplexity to : ",perplexity)
+sprintf("Updated Perplexity to : %f",perplexity)
 tsne.hvg <- Rtsne(log.hvg.DenoisedCounts, dims=2, pca=T, perplexity=perplexity, check_duplicates=F, theta=0.0, initial_dims=n.pc)
 tsne.hvg.y <- data.frame(tsne.hvg$Y)
 
@@ -336,7 +336,9 @@ if(k.def == 0){
 df.DenoisedCounts <- data.frame(DenoisedCounts[!grepl("ERCC", rownames(DenoisedCounts)), ], check.names=F)
 df.DenoisedCounts <- apply(df.DenoisedCounts,2,function(x) {storage.mode(x) <- 'integer'; x}) 
 # fit error models for each cell
-o.ifm <- scde.error.models(counts = df.DenoisedCounts, n.cores = n.cpu, min.size.entries = 50, threshold.segmentation = TRUE, save.crossfit.plots = FALSE, save.model.plots = FALSE, verbose = 0)
+min_size = min(50,nrow(df.DenoisedCounts))
+sprintf("Updated min.size.entries to : %i",min_size)
+o.ifm <- scde.error.models(counts = df.DenoisedCounts, n.cores = n.cpu, min.size.entries = min_size, threshold.segmentation = TRUE, save.crossfit.plots = FALSE, save.model.plots = FALSE, verbose = 0)
 # remove cells with abnormal fits (corr.a <= 0); all valid in this data
 o.ifm <- o.ifm[o.ifm$corr.a > 0, ]
 # cells with valid error model
