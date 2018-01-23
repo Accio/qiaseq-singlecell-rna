@@ -95,7 +95,14 @@ def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sam
             for line in IN:
                 metric,val = line.strip('\n').split(':')
                 metric_dict_per_cell[cell][metric] = int(val)
-
+                
+    ## Get all N reads
+    all_N_file = glob.glob(os.path.join(basedir,"*/*_multiplex_metrics.txt"))[0]
+    with open(all_N_file,'r') as IN:
+        for line in IN:
+            metric,val = line.strip('\n').split(':')
+            metric_dict[metric] = float(val)
+            
     ## Write metrics for the sample
     write_metrics_sample(metric_dict,metric_file,wts)
     ## Write metrics for each cell to a file
@@ -109,11 +116,14 @@ def write_metrics_sample(sample_metrics,outfile,wts):
     :param bool wts: whether this is whole transcriptome seq
     '''
     ## Check to make sure the metrics add up
-    reads_total = int(sample_metrics['reads total'])    
+    reads_total = int(sample_metrics['reads total'])
+    ## Updated metrics to account for all N reads
+    sample_metrics['reads dropped, cell id not extracted'] = sample_metrics['reads dropped, cell id not extracted'] - sample_metrics['reads dropped, all NNNNNN sequence']
     reads_dropped_demultiplexing = (
         int(sample_metrics['reads dropped, cell id not extracted']) + \
         int(sample_metrics['reads dropped, cell id not matching oligo']) + \
-        int(sample_metrics['reads dropped, less than 25 bp'])       
+        int(sample_metrics['reads dropped, less than 25 bp']) + \
+        int(sample_metrics['reads dropped, all NNNNNN sequence'])
     )
     if wts:
         reads_dropped_counting = (

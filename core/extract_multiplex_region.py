@@ -77,11 +77,14 @@ def find_motif(motif,match_group,read_tup):
     read_id,read_seq = read_tup
     match = regex.match(motif,read_seq)
     if match:
-        return (read_id,match.group(match_group))
-    else:        
-        return (read_id,None)
+        return (read_id,match.group(match_group),False)
+    else:
+        if len(set(read_seq)) == 1 and read_seq[0] == 'N':
+            return (read_id, None, True)
+        else:
+            return (read_id,None,False)
 
-def print_result(regions,outfile,cell_index_len):
+def print_result(regions,outfile,metricfile,cell_index_len):
     '''
     Output the results as a tsv file
 
@@ -90,20 +93,23 @@ def print_result(regions,outfile,cell_index_len):
     :return: nothing
     :rtype:
     '''
-    i = 0
-    j = 0
+    reads_dropped_all_N = 0    
     with open(outfile,'w') as OUT:
         OUT.write("read_id\tcell_index\tmt\n")
-        for read_id,multiplex_region in regions:
+        for read_id,multiplex_region,is_all_N in regions:
             if multiplex_region:
                 i+=1
                 cell_index = multiplex_region[0:cell_index_len]
                 mt = multiplex_region[cell_index_len:]
                 OUT.write("%s\t%s\t%s\n"%(read_id,cell_index,mt))
-            else:         
-                j+=1
+            else:
+                if is_all_N:
+                    reads_dropped_all_N+=1
+                    
+    with open(metricfile,'w') as OUT:
+        OUT.write("reads dropped, all NNNNNN sequence: {}".format(reads_dropped_all_N))
 
-def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfile,cores,instrument):
+def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfile,metricfile,cores,instrument):
     '''
     A wrapper function to parallelize motif finding in the sequencing reads
 
@@ -113,6 +119,7 @@ def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfi
     :param int mt_len: length of the molecular tag region
     :param str read2_fastq: 2nd mate pair fastq location(can be .gz or not)
     :param str outfile: path to the output file
+    :param str metricfile: path to outut metric file
     :param int cores: number of processes to use
     :param str instrument: the type of instrument used for sequencing
     :return: nothing
@@ -133,7 +140,7 @@ def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfi
     func = partial(find_motif,motif,match_group)
     print "\nLooking for the motif : %s in the sequencing reads.\n"%motif
     ## Print out results , takes in input a list of tuples which are processed in parallel by func()
-    print_result(p.map(func,iterate_fastq(read2_fastq)),outfile,cell_index_len)
+    print_result(p.map(func,iterate_fastq(read2_fastq)),outfile,metricfile,cell_index_len)
     p.close()
     p.join()
 
@@ -143,7 +150,11 @@ if __name__ == "__main__":
                                      argparse.ArgumentDefaultsHelpFormatter)
 
     parser.add_argument('-v','--vector',help="The vector nucleotide sequence",
-                        required=True)
+                        required=True
+    )
+    parser.add_argument('-met','--mfile',help="The output metric file",
+                        required=True
+    )    
     parser.add_argument('--isolator',
                         help="The isolator sequence flanking the molecular tag",
                         required=True)
@@ -166,4 +177,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print "\nRunning program with arguments : {0}\n".format(args)
     extract_region(args.vector,args.error,args.cell_index_len,args.mt_len,args.isolator,
-                             args.read2_fastq,args.out,args.parallel)
+                             args.read2_fastq,args.out,args.mfile,args.parallel)

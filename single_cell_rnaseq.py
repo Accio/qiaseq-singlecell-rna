@@ -93,6 +93,8 @@ class ExtractMultiplexRegion(luigi.Task):
                                               '.verification.txt')
         self.multiplex_file = os.path.join(self.sample_dir,
                                            '%s_multiplex_region.txt'%self.sample_name)
+        self.multiplex_metrics = os.path.join(self.sample_dir,
+                                           '%s_multiplex.metrics.txt'%self.sample_name)
     def requires(self):
         ''' Dependencies for this task
         R2 fastq file must be present
@@ -108,8 +110,8 @@ class ExtractMultiplexRegion(luigi.Task):
         extract_region(self.vector_sequence,
                        self.num_errors,self.cell_index_len,
                        self.mt_len,self.isolator,self.R2_fastq,
-                       self.multiplex_file,self.num_cores,
-                       self.instrument)
+                       self.multiplex_file,self.multiplex_metrics,
+                       self.num_cores,self.instrument)
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"

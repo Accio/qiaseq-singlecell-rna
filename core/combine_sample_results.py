@@ -319,9 +319,9 @@ def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
                     cells_dropped.add(cell_key)
     ## Create header
     if wts:
-        header = "gene id\tgene\tstrand\tchrom\tloc 5' GRCh38\tloc 3' GRCh38\t{cells}\n"
+        header = "gene id\tgene\tstrand\tchrom\tloc 5'\tloc 3'\t{cells}\n"
     else:
-        header = "gene id\tgene\tstrand\tchrom\tloc 5' GRCh38\tloc 3' GRCh38\tprimer seq\t{cells}\n"
+        header = "gene id\tgene\tstrand\tchrom\tloc 5'\tloc 3'\tprimer seq\t{cells}\n"
     temp = '\t'.join(list(header_cells))
     head = header.format(cells=temp)
     ## Print output
