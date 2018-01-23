@@ -161,7 +161,7 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
         reads_dropped_less_5_UMI=0
         UMIs_dropped=0
         with open(read_stats_file,'r') as IN:
-            for line in IN:                
+            for line in IN:              
                 metric,val = line.strip('\n').split(':')
                 if metric!="detected genes":
                     dropped_metrics[metric][sample_index]+=int(val)
@@ -189,9 +189,10 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
                     total_used_reads[sample_index]+=sample_metrics[metric][sample_index]
                 sample_metrics[metric][sample_index] = sample_metrics[metric][sample_index] - \
                                                        dropped_metrics[metric][sample_index]
-                
-    for sample_index in dropped_metrics[metric]: ## Update mean reads per UMI to account for dropping
-        sample_metrics['mean reads per UMI'][sample_index] = total_used_reads[sample_index]/float(sample_metrics['total UMIs'][sample_index])
+
+    if new_metric in dropped_metrics: ## Check if cells are dropped
+        for sample_index in dropped_metrics[metric]: ## Update mean reads per UMI to account for dropping
+            sample_metrics['mean reads per UMI'][sample_index] = total_used_reads[sample_index]/float(sample_metrics['total UMIs'][sample_index])
                 
     ## Combine and write resultant output file
     return_metrics = defaultdict(int)
@@ -215,10 +216,13 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
                 ## Add new metric for cells dropped                
                 out = new_metric
                 for sample in sample_metrics[metric]:
-                    if sample in dropped_metrics[new_metric]:
-                        out = out+'\t'+float_to_string(round(dropped_metrics[new_metric][sample],2))
-                    else:
-                        out = out+'\t'+float_to_string(0.0)
+                    if new_metric in dropped_metrics:
+                        if sample in dropped_metrics[new_metric]:
+                            out = out+'\t'+float_to_string(round(dropped_metrics[new_metric][sample],2))
+                        else:
+                            out = out+'\t'+float_to_string(0.0)
+                    else: ## No cells were dropped
+                        out = out+'\t'+float_to_string(0.0) 
                 OUT.write(out+'\n')                
 
     return return_metrics
