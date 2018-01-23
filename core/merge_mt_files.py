@@ -71,10 +71,20 @@ def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sam
     metric_dict_per_cell = defaultdict(lambda:defaultdict(int))
     do_not_add_metrics = ['detected genes']
     ## Read temp metrics file to get total reads , reads dropped during demultiplexing
+    first = True
     with open(temp_metric_file,'r') as M:
         for line in M:
             metric,val = line.strip('\n').split(':')
             metric_dict[metric] = float(val)
+            if first:
+                ## Get all N reads
+                all_N_file = glob.glob(os.path.join(basedir,"*_multiplex.metrics.txt"))[0]
+                with open(all_N_file,'r') as IN:
+                    for line in IN:
+                        metric,val = line.strip('\n').split(':')
+                        metric_dict[metric] = float(val)
+                first = False       
+            
     ## Get read stats for each cell as well as aggregating for sample level
     for f in files_to_merge:
         cell = os.path.dirname(f).split('/')[-1].split('_')[0].strip('Cell')
@@ -96,12 +106,6 @@ def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sam
                 metric,val = line.strip('\n').split(':')
                 metric_dict_per_cell[cell][metric] = int(val)
                 
-    ## Get all N reads
-    all_N_file = glob.glob(os.path.join(basedir,"*/*_multiplex_metrics.txt"))[0]
-    with open(all_N_file,'r') as IN:
-        for line in IN:
-            metric,val = line.strip('\n').split(':')
-            metric_dict[metric] = float(val)
             
     ## Write metrics for the sample
     write_metrics_sample(metric_dict,metric_file,wts)

@@ -1,4 +1,3 @@
-import re
 import argparse
 import gzip
 import multiprocessing
@@ -98,7 +97,6 @@ def print_result(regions,outfile,metricfile,cell_index_len):
         OUT.write("read_id\tcell_index\tmt\n")
         for read_id,multiplex_region,is_all_N in regions:
             if multiplex_region:
-                i+=1
                 cell_index = multiplex_region[0:cell_index_len]
                 mt = multiplex_region[cell_index_len:]
                 OUT.write("%s\t%s\t%s\n"%(read_id,cell_index,mt))
