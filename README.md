@@ -2,6 +2,7 @@
 ```bash
 # Run this pipeline as follows : 
 EXPORT_LUIGI_CONFIG_PATH='pipeline.cfg'
+luigid --background &
 PYTHONPATH="" luigi --module single_cell_rnaseq ClusteringAnalysis --samples-cfg samples.cfg --workers 22
 ```
 
