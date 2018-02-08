@@ -316,5 +316,5 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
         worksheet.write_row(25,0,["UMI count normalization",normalization_method])
         worksheet.write_row(26,0,["Highly variable gene selection",hvg_method])
         worksheet.write_row(27,0,["Cell clustering","PCA and K-means clustering"])
-        worksheet.write_row(28,0,["Differential expression analysis",identify_DE_method_used(runid)])
+        worksheet.write_row(28,0,["Differential expression analysis",identify_DE_method_used(run_id)])
     workbook.close()
