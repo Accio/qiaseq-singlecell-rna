@@ -118,6 +118,22 @@ find.k <- function(top.pc, kmax, n.trial, n.boot) {
    return(k.optimal)
 }
    
+model.prior <- function(df.DenoisedCounts, n.cpu, min_size){
+	## error modelling using scde
+	
+	# df.DenoisedCounts : count matrix
+	# n.cpu : number of cpus to use in parallelization
+	# min_size : minimum number of genes in the count matrix
+	
+	o.ifm <- scde.error.models(counts = df.DenoisedCounts, n.cores = n.cpu, min.size.entries = min_size, threshold.segmentation = TRUE, save.crossfit.plots = FALSE, save.model.plots = FALSE, verbose = 0)
+	# remove cells with abnormal fits (corr.a <= 0); all valid in this data
+	o.ifm <- o.ifm[o.ifm$corr.a > 0, ]
+	# cells with valid error model
+	cells.model <- rownames(o.ifm)
+	# estimate gene expression prior
+	o.prior <- scde.expression.prior(models = o.ifm, counts = df.DenoisedCounts, length.out = 400, show.plot = FALSE)
+	return(list(o.ifm,o.prior))
+}
 
 # differential expression analysis; norm.table: normalized umi counts, genes in rows and cells in cols. counts must be in integer; clusters: vector of clusters in factor
 pair.de <- function(o.ifm, o.prior, norm.table, cluster, pair, nclust, n.cpu){
@@ -127,6 +143,48 @@ pair.de <- function(o.ifm, o.prior, norm.table, cluster, pair, nclust, n.cpu){
              select(c(K, Group_A, Group_B, Gene, Fold_change, Lower_limit, Upper_limit, Z_score, P_value, Adjusted_z_score, Adjusted_p_value)) %>% 
              arrange(Adjusted_p_value) -> ediff
    return(ediff)
+}
+
+
+# DE analysis with edgeR
+
+fit.de.edgeR <- function(cluster.res,sce){
+  ## Create design matrix, Convert to edgeR format and fit model
+  
+  # cluster.res : information on the the cluster group membership
+  # sce : a SingleCell Experiment object
+  # returns : a DGEGLM object returned by glmFit
+
+  de.design <- model.matrix( ~ 0 + cluster.res)
+  y <- convertTo(sce,type="edgeR")
+  # estimate dispersion
+  y <- estimateDisp(y,de.design)
+  de.fit <- glmFit(y,de.design)
+  return (de.fit)
+}
+pair.de.edgeR <- function(k,pair,de.fit){
+  ## Likelihood Ratio test
+  
+  # k : number of clusters
+  # pair : a vector of length two representing the two clusters  
+  # de.fit : a DGEGLM object returned by glmFit
+  # returns : a data frame with results from the likelihood ratio tests
+  
+  a = pair[1]
+  b = pair[2]
+  contrast <- numeric(k)
+  if (b==10000){ ## one vs others case
+    contrast[1] <- 1
+    contrast[2] <- -1
+  }else{  
+    contrast[pair[1]] <- 1
+    contrast[pair[2]] <- -1
+  }
+  de.res <- glmLRT(de.fit,contrast=contrast)
+  df <- de.res$table
+  df <- rownames_to_column(df,var="Gene")
+  df <- cbind(K=k,Group_A=a,Group_B=b,df)
+  return(df)
 }
 
 # plot heatmap 

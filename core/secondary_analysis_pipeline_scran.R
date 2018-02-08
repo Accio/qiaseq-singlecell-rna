@@ -62,6 +62,7 @@ suppressMessages(library(colorspace))
 suppressMessages(library(cluster))
 suppressMessages(library(pheatmap))
 suppressMessages(library(scran))
+suppressMessages(library(edgeR))
 
 options(stringsAsFactors=F)
 select <- dplyr::select
@@ -338,13 +339,23 @@ df.DenoisedCounts <- apply(df.DenoisedCounts,2,function(x) {storage.mode(x) <- '
 # fit error models for each cell
 min_size = min(50,nrow(df.DenoisedCounts))
 sprintf("Updated min.size.entries to : %i",min_size)
-o.ifm <- scde.error.models(counts = df.DenoisedCounts, n.cores = n.cpu, min.size.entries = min_size, threshold.segmentation = TRUE, save.crossfit.plots = FALSE, save.model.plots = FALSE, verbose = 0)
-# remove cells with abnormal fits (corr.a <= 0); all valid in this data
-o.ifm <- o.ifm[o.ifm$corr.a > 0, ]
-# cells with valid error model
-cells.model <- rownames(o.ifm)
-# estimate gene expression prior
-o.prior <- scde.expression.prior(models = o.ifm, counts = df.DenoisedCounts, length.out = 400, show.plot = FALSE)
+
+## scde based error modelling
+ret <- tryCatch(
+	model.prior(df.DenoisedCounts,n.cpu,min_size),
+	error=function(c){
+	print("scde based modelling failed, using edgeR")
+	print(c)
+	return(list("NA","NA"))
+	})
+o.ifm <- ret[1]
+o.prior <- ret[2]
+
+if (o.ifm == "NA"){ ## scde failed
+  run.edgeR = TRUE
+} else{
+  run.edgeR = FALSE
+}
 
 for(k in 2:k.max){
   # create subdirectory to store outputs
@@ -362,17 +373,29 @@ for(k in 2:k.max){
   heat.counts <- data.frame(log.hvg.DenoisedCounts, check.names=F)
   fig.name <- paste0(subdir, "/", run.id, ".heatmap.png")
   heatmap_wrapper(counts = heat.counts, cluster = heat.cluster, filename = fig.name, col=colors)
-  
+
+  if (run.edgeR == TRUE){
+  # DE analysis with edgeR
+  de.fit <- fit.de.edgeR(cluster.res,sce)
+  }
+
   # pair-wise DE analysis; Based on ALL genes
   pairs <- combn(sort(unique(cluster.res)), 2)  # all pairs of clusters; each col is a pair
   for(i in 1:ncol(pairs)){
     pair <- pairs[,i]
     sub.table <- df.DenoisedCounts[, names(cluster.res[cluster.res %in% pair])]
     sub.cluster <- cluster.res[cluster.res %in% pair]
+
+    if (run.edgeR == TRUE){
+      # DE analysis with edgeR
+      de.res <- pair.de.edgeR(k,pair,de.fit)
     
-    sub.o.ifm <- o.ifm[rownames(o.ifm) %in% colnames(sub.table), ]
-    sub.cluster.new <- factor(sub.cluster[names(sub.cluster) %in% cells.model])
-    de.res <- pair.de(o.ifm = sub.o.ifm, o.prior = o.prior, norm.table = sub.table, cluster = sub.cluster.new, pair = pair, nclust = k, n.cpu = n.cpu)
+    } else {
+      # DE analysis with SCDE
+      sub.o.ifm <- o.ifm[rownames(o.ifm) %in% colnames(sub.table), ]
+      sub.cluster.new <- factor(sub.cluster[names(sub.cluster) %in% cells.model])
+      de.res <- pair.de(o.ifm = sub.o.ifm, o.prior = o.prior, norm.table = sub.table, cluster = sub.cluster.new, pair = pair, nclust = k, n.cpu = n.cpu)    
+    }
     outfile.name <- paste0(subdir, "/", run.id, ".", pair[1], "_vs_", pair[2], ".diff.exp.csv")
     write.csv(de.res, outfile.name, row.names=F, quote=F)
   }
@@ -383,9 +406,16 @@ for(k in 2:k.max){
       new.cluster.res <- factor(ifelse(as.numeric(cluster.res) == j, j, 10000))
       names(new.cluster.res) <- names(cluster.res)
       pair <- c(j, 10000)
-      de.res <- pair.de(o.ifm = o.ifm, o.prior = o.prior, norm.table = df.DenoisedCounts, cluster = new.cluster.res, pair = pair, nclust = k, n.cpu = n.cpu) %>% mutate(Group_B = "Others")
+      if(run.edgeR == TRUE){      
+        # DE analysis with edgeR
+	de.fit <- fit.de.edgeR(new.cluster.res,sce)
+	de.res <- pair.de.edgeR(2,pair,de.fit) %>% mutate(Group_B = "Others")
+      } else {
+      	# SCDE
+        de.res <- pair.de(o.ifm = o.ifm, o.prior = o.prior, norm.table = df.DenoisedCounts, cluster = new.cluster.res, pair = pair, nclust = k, n.cpu = n.cpu) %>% mutate(Group_B = "Others")
+      }
       outfile.name <- paste0(subdir, "/", run.id, ".", j, "_vs_others.diff.exp.csv")
-      write.csv(de.res, outfile.name, row.names=F, quote=F)
+      write.csv(de.res, outfile.name, row.names=F, quote=F)      
     }
   }
 }
