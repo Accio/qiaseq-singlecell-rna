@@ -5,6 +5,7 @@ from collections import defaultdict
 import ConfigParser
 import glob
 import gzip
+import subprocess
 from merge_mt_files import float_to_string
 
 def read_sample_metrics(sample_metrics_file):
@@ -143,6 +144,23 @@ def get_sample_names(samples_cfg):
         ret.append(section)
     return ','.join(ret)
 
+
+def identify_DE_method_used(runid):
+    ''' Identify DE method used based by grepping the log
+    we use either SCDE or edgeR
+    
+    :param str runid: the runid corresponding to the job    
+    :returns SCDE or edgeR
+    :rtype str
+    '''
+    logfile = "/srv/qgen/code/qiaseq-singlecell-rna/{runid}.log".format(runid=runid)    
+    grep_cmd = """ grep "scde based modelling failed, using edgeR" {log} """.format(log=logfile)
+    try:
+        out=subprocess.check_output(grep_cmd,shell=True).strip('\n')
+        return 'edgeR'
+    except subprocess.CalledProcessError:
+        return 'SCDE'    
+    
 def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
                       samples_cfg,sample_metrics_file,cell_metrics_file,
                       cells_dropped_file,metrics_from_countfile,
@@ -298,6 +316,5 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
         worksheet.write_row(25,0,["UMI count normalization",normalization_method])
         worksheet.write_row(26,0,["Highly variable gene selection",hvg_method])
         worksheet.write_row(27,0,["Cell clustering","PCA and K-means clustering"])
-        worksheet.write_row(28,0,["Differential expression analysis","SCDE"])
-    
+        worksheet.write_row(28,0,["Differential expression analysis",identify_DE_method_used(runid)])
     workbook.close()
