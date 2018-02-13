@@ -342,7 +342,7 @@ def combine_count_files(files_to_merge,outfile,wts,cells_to_restrict=[]):
                     out = out + '\t{}'.format(UMI[key][cell])                    
                     total_UMIs+=int(UMI[key][cell])
                     umi_for_gene+=int(UMI[key][cell])
-            if umi_for_gene > 0: ## Do not write genes with no UMIs for any cell
+            if umi_for_gene > 0 or not wts: ## Do not write genes with no UMIs for any cell (only in wts)
                 OUT.write(out+'\n')
     ## Sort the count file
     sort_by_cell(outfile,wts)
