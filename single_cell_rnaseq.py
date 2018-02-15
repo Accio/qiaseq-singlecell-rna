@@ -339,7 +339,7 @@ class CountMT(luigi.Task):
         ''' Work to be done is counting of UMIs
         '''
         logger.info("Started Task: {x}-{y}-{z} {v}".format(x='UMI Counting',y=self.sample_name,z=self.cell_num,v=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-        if not is_gzip_empty(self.cell_fastq): ## Make sure the file is not empty
+        if not is_file_empty(self.cell_fastq): ## Make sure the file is not empty
             if config().seqtype.upper() == 'WTS':
                 count_umis_wts(GENE_TREE,self.bam,self.outfile,
                                self.metricsfile,self.logfile)
