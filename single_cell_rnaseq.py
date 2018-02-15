@@ -18,7 +18,7 @@ from count_mt import count_umis,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files
 from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics,clean_for_clustering,check_metric_counts
 from create_excel_sheet import write_excel_workbook
-from create_run_summary import is_gzip_empty, write_run_summary, calc_stats_gene_count, calc_median_cell_metrics
+from create_run_summary import is_file_empty, write_run_summary, calc_stats_gene_count, calc_median_cell_metrics
 from create_annotation_tables import create_gene_tree,create_gene_hash
 
 ## Some globals to cache across tasks
@@ -269,7 +269,7 @@ class Alignment(luigi.Task):
         ''' Work is to run STAR alignment
         '''
         logger.info("Started Task: {x}-{y}-{z} {v}".format(x='STAR Alignment',y=self.sample_name,z=self.cell_num,v=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-        if not is_gzip_empty(self.cell_fastq): ## Make sure the file is not empty
+        if not is_file_empty(self.cell_fastq): ## Make sure the file is not empty
             ## Do the alignment
             star_alignment(config().star,config().genome_dir,
                            os.path.join(self.cell_dir,''),config().star_params,
@@ -415,7 +415,7 @@ class JoinCountFiles(luigi.Task):
             cell_dir = os.path.join(self.sample_dir,'Cell%i_%s'%(
                 cell_num,cell_index))
             cell_fastq = os.path.join(cell_dir,'cell_'+str(cell_num)+
-                                      '_R1.fastq.gz')
+                                      '_R1.fastq')
             dependencies.append(CountMT(R1_fastq=self.R1_fastq,
                                         R2_fastq=self.R2_fastq,
                                         output_dir=self.output_dir,

@@ -90,27 +90,31 @@ def calc_median_cell_metrics(cell_metrics,metric,cells_to_drop=[]):
 
     return int(np.median(temp))
     
-def is_gzip_empty(gzipfile):
-    ''' Helper function to check if a gzip file is empty
-    :param str gzipfile: the .gz file
+def is_file_empty(infile):
+    ''' Helper function to check if a gzip/regular file is empty
+    :param str infile: the input file
     :returns Whether the file is empty or not
     :rtype bool
     '''
-    with gzip.open(gzipfile,'r') as IN:
-        i=0
-        for line in IN:
-            if i == 5:
-                break
-            i+=1
+    if infile.endswith('.gz'):
+        IN = gzip.open(infile,'r')
+    else:
+        IN = open(infile,'r')
+    i=0
+    for line in IN:
+        if i == 5:
+            break
+        i+=1
+    IN.close()
     return i == 0
 
 def get_cells_demultiplexed(run_id):
     '''
     '''
     counter=0
-    search_path = os.path.join("/home/qiauser/{run_id}/primary_analysis/*/*/*.fastq.gz".format(run_id=run_id))
+    search_path = os.path.join("/home/qiauser/{run_id}/primary_analysis/*/*/*.fastq".format(run_id=run_id))
     for fastq in glob.glob(search_path):
-        if not is_gzip_empty(fastq):
+        if not is_file_empty(fastq):
             counter+=1
     return counter
 

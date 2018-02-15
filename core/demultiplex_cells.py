@@ -212,7 +212,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
     def mkdir_p(path):
         try:
             os.makedirs(path)
-        except OSError as exc:
+        except OSError as exc: ## Hnadle race condition
             if exc.errno == errno.EEXIST and os.path.isdir(path):
                 pass
             else:
@@ -222,10 +222,10 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
 
     for cell_index,cell_num in cell_indices.items():
         fastq=os.path.join(base_dir,'Cell'+str(cell_num)+'_'+cell_index+
-                                         '/cell_'+str(cell_num)+'_R1.fastq.gz')
+                                         '/cell_'+str(cell_num)+'_R1.fastq')
         metric=os.path.join(base_dir,'Cell'+str(cell_num)+'_'+cell_index+
                                          '/cell_'+str(cell_num)+'_demultiplex_stats.txt')
-        FASTQS[cell_index] = gzip.open(fastq,'w')
+        FASTQS[cell_index] = open(fastq,'w')
         METRICS[cell_index] = metric
     ## Store metrics for each cell
     cell_metrics = collections.defaultdict(lambda:collections.defaultdict(int))
