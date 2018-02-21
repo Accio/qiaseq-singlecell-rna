@@ -62,7 +62,7 @@ def create_gene_tree(annotation_gtf,ercc_bed,merge_coordinates=False):
     '''
     gene_tree = defaultdict(lambda:defaultdict(IntervalTree))
     genes = defaultdict(list)
-    valid_chromosomes = ["chr"+str(i) for i in range(0,23)]
+    valid_chromosomes = ["chr"+str(i) for i in range(0,23)]    
     valid_chromosomes.extend(["chrX","chrY","chrM"])
     with open_by_magic(annotation_gtf) as IN:
         for line in IN:
@@ -77,15 +77,24 @@ def create_gene_tree(annotation_gtf,ercc_bed,merge_coordinates=False):
                 end = int(contents[4])
                 strand = convert_strand(contents[6])
                 info = contents[-1]
-                gene = info.split(';')[3].split()[1].strip('\"')
-                ensembl_id = info.split(';')[0].split()[1].strip('\"')
-                gene_type = info.split(';')[1].split()[1].strip('\"')
-                
-
-                if gene == None or ensembl_id == None:
+                gene,ensemb_id,gene_type = (None,None,None)
+                for element in info.split(';'):
+                    if len(element) == 0:
+                        continue                    
+                    e1,e2 = element.split()
+                    if e1 == "gene_name":
+                        gene = e2.strip('\"')
+                    elif e1 in ["gene_type","gene_biotype"]:
+                        gene_type = e2.strip('\"')
+                    elif e1 == "gene_id":
+                        ensembl_id = e2.strip('\"')               
+                        
+                if ensembl_id == None:
                     raise Exception(
                         "Failed Parsing annotation file :{annotation}".format(
                             annotation=annotation_gtf))
+                if gene == None: ## Ensembl rat gtf did not have gene name in certain cases
+                    gene = ensembl_id
 
                 if merge_coordinates: ## Create a coordinate set which is merged to include the largest interval possible
                     if gene in genes: ## Gene has been seen before
@@ -138,5 +147,5 @@ def create_gene_tree(annotation_gtf,ercc_bed,merge_coordinates=False):
             new_info = (ensembl_id,gene,strand,chrom,five_prime,three_prime)
             gene_tree[chrom][strand].addi(start,end+1,new_info)
 
-    print "Interval tree created with {ngenes}".format(ngenes=len(genes))
+    print "Interval tree created with {ngenes} genes".format(ngenes=len(genes))
     return gene_tree
