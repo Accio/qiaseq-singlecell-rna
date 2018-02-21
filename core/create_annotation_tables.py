@@ -63,7 +63,7 @@ def create_gene_tree(annotation_gtf,ercc_bed,merge_coordinates=False):
     gene_tree = defaultdict(lambda:defaultdict(IntervalTree))
     genes = defaultdict(list)
     valid_chromosomes = ["chr"+str(i) for i in range(0,23)]    
-    valid_chromosomes.extend(["chrX","chrY","chrM"])
+    valid_chromosomes.extend(["chrX","chrY","chrM","chrMT"])
     with open_by_magic(annotation_gtf) as IN:
         for line in IN:
             if line[0]=='#':
