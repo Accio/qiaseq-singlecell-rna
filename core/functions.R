@@ -132,7 +132,7 @@ model.prior <- function(df.DenoisedCounts, n.cpu, min_size){
 	cells.model <- rownames(o.ifm)
 	# estimate gene expression prior
 	o.prior <- scde.expression.prior(models = o.ifm, counts = df.DenoisedCounts, length.out = 400, show.plot = FALSE)
-	return(list(o.ifm,o.prior))
+	return(list(cells.model,o.ifm,o.prior,"PASS"))
 }
 
 # differential expression analysis; norm.table: normalized umi counts, genes in rows and cells in cols. counts must be in integer; clusters: vector of clusters in factor

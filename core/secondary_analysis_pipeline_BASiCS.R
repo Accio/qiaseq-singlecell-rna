@@ -322,10 +322,13 @@ ret <- tryCatch(
 	print(c)
 	return(list("NA","NA"))
 	})
-o.ifm <- ret[1]
-o.prior <- ret[2]
 
-if (o.ifm == "NA"){ ## scde failed
+cells.model = ret[[1]]
+o.ifm <- ret[[2]]
+o.prior <- ret[[3]]
+scde.success = ret[[4]]
+
+if (scde.success == "NA"){ ## scde failed
   run.edgeR = TRUE
   # create a new SingleCellExperiment object
   basics <- newBASiCS_Data(Counts=df.DenoisedCounts, Tech=newTech, SpikeInfo=newSpikeInfo) 

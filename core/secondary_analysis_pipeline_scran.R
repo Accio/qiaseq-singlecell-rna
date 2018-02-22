@@ -346,12 +346,15 @@ ret <- tryCatch(
 	error=function(c){
 	print("scde based modelling failed, using edgeR")
 	print(c)
-	return(list("NA","NA"))
+	return(list("NA","NA","NA","NA"))
 	})
-o.ifm <- ret[1]
-o.prior <- ret[2]
 
-if (o.ifm == "NA"){ ## scde failed
+cells.model = ret[[1]]	
+o.ifm <- ret[[2]]
+o.prior <- ret[[3]]
+scde.success = ret[[4]]
+
+if (scde.success == "NA"){ ## scde failed 
   run.edgeR = TRUE
 } else{
   run.edgeR = FALSE
@@ -392,7 +395,7 @@ for(k in 2:k.max){
     
     } else {
       # DE analysis with SCDE
-      sub.o.ifm <- o.ifm[rownames(o.ifm) %in% colnames(sub.table), ]
+      sub.o.ifm <- o.ifm[cells.model %in% colnames(sub.table),]
       sub.cluster.new <- factor(sub.cluster[names(sub.cluster) %in% cells.model])
       de.res <- pair.de(o.ifm = sub.o.ifm, o.prior = o.prior, norm.table = sub.table, cluster = sub.cluster.new, pair = pair, nclust = k, n.cpu = n.cpu)    
     }
