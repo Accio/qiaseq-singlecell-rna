@@ -11,6 +11,7 @@ cd /srv/qgen/code/
 git https://github.com/qiaseq/qiaseq-singlecell-rna.git
 
 # Run this pipeline as follows : 
+cd qiaseq-singlecell-rna
 EXPORT_LUIGI_CONFIG_PATH='pipeline.cfg'
 luigid --background &
 PYTHONPATH="" luigi --module single_cell_rnaseq ClusteringAnalysis --samples-cfg samples.cfg --workers 22
