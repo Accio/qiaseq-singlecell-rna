@@ -76,14 +76,47 @@ def calc_stats_gene_count(combined_gene_count_file):
 
     return (cell_metrics, temp['num_genes'], temp['num_ercc'], temp['umis_genes'], temp['umis_ercc'])
 
-def calc_median_cell_metrics(cell_metrics,metric,cells_to_drop=[]):
+def calc_median_cell_metrics(cell_metrics,metric,cells_to_drop=[],drop_outlier_cells = False):
     ''' Calculate median across all cells for a given metric
     :param dict cell_metrics: dictionary of metrics for each cell
     :param str metric: the metric to calculate the median for
     :param list: cells_to_drop: account for cell droppings, i.e. which cells to 
                                 ignore when calculating the median
+    :param drop_outlier_cells: whether to prune outlier cells when calculating the median
     '''
+    
+    ''' 
+    If specified, drop some outlier cells when calculating the median
+    Follow similar logic as that used in the secondary analysis, i.e.
+    1.) Cells with endogenous gene UMIs below 5th percentile OR
+    2.) Cells with % of endogenous UMIs below 5th percentile OR
+    3.) Cells with detected genes below 5th percentile    
+    '''
+    if drop_outlier_cells:
+        temp1 = []
+        temp2 = []
+        temp3 = []
+        temp_cells = []
+        for cell in cell_metrics:
+            temp1.append(cell_metrics[cell]['umis_genes'])
+            temp2.append(cell_metrics[cell]['num_genes'])
+            temp3.append(float(cell_metrics[cell]['num_genes'])/(cell_metrics[cell]['num_genes'] + cell_metrics[cell]['num_ercc']))
+            temp_cells.append(cell)
+
+        num_cells = len(temp_cells)
+        # compute index corresponding to the 5th percentile metrics above ; add < 5th percentile values to list of cells to drop
+        for l in [temp1,temp2,temp3]:
+            sorted_l = sorted(l)
+            sorted_cells = [x for _,x in sorted(zip(sorted_l,temp_cells))]
+            idx = int(round(0.05 * (num_cells - 1)))
+            cells_to_drop.extend(sorted_cells[0:idx])
+        
     temp = []
+    cells_to_drop = set(cells_to_drop)
+    if drop_outlier_cells:
+        print "Cells dropped when computing median :\n"
+        print ",".join(list(cells_to_drop))+"\n"
+    
     for cell in cell_metrics:
         if cell not in cells_to_drop:
             temp.append(cell_metrics[cell][metric])

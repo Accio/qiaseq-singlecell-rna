@@ -650,9 +650,9 @@ class ClusteringAnalysis(luigi.Task):
 
         ## Calculate some statistics for running the appropriate normalization
         cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc = calc_stats_gene_count(self.combined_count_file)
-        median_ercc = calc_median_cell_metrics(cell_stats,'umis_ercc')        
-	## Run clustering analysis
+        median_ercc = calc_median_cell_metrics(cell_stats,'umis_ercc',cells_to_drop = [], drop_outlier_cells=True)
         
+	## Run clustering analysis        
         if median_ercc < 100:
             logger.info("Running scran script with no ercc normalization")
             run_cmd(self.cmd_scran_low_ercc)
