@@ -17,12 +17,12 @@ def return_read_end_pos(read_pos,cigar,flag=False,pattern=regex.compile('([0-9]+
     expanded_cigar = []
     bases=0
     if flag:
-        bases_to_ignore = ['S','I','H','P','N']
+        cigars_to_ignore = ['S','I','H','P','N']
     for num_bases,cigar_char in regex.findall(pattern,cigar):
         if cigar_char in cigars_to_ignore:
             continue
-    else:
-        bases+=int(num_bases)
+        else:
+            bases+=int(num_bases)
     return read_pos+bases
 
 @RemoteException.showError
