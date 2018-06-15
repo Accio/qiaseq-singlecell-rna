@@ -45,6 +45,7 @@ class config(luigi.Config):
     is_low_input = luigi.Parameter(description="Whether the sequencing protocol was for a low input application")
     catalog_number = luigi.Parameter(description="The catalog number for this primer pool")
     species = luigi.Parameter(description="The species name")
+    editdist = luigi.IntParameter(description="Whether to allow a single base mismatch in the cell index")
     
 class MyExtTask(luigi.ExternalTask):
     ''' Checks whether the file specified exists on disk
@@ -166,11 +167,11 @@ class DeMultiplexer(luigi.Task):
         if config().seqtype.upper() == 'WTS':
             create_cell_fastqs(self.sample_dir,self.temp_metric_file,
                                self.cell_index_file,self.multiplex_file,
-                               self.R1_fastq,True)
+                               self.R1_fastq,config().editdist,True)
         else:
             create_cell_fastqs(self.sample_dir,self.temp_metric_file,
                                self.cell_index_file,
-                               self.multiplex_file,self.R1_fastq)
+                               self.multiplex_file,self.R1_fastq,config().editdist)
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"

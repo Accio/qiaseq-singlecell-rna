@@ -80,37 +80,27 @@ def read_multiplex_file(multiplex_file):
         for line in IN:
             yield line.rstrip('\n').split('\t')
 
-def match_cell_index(cell_indices,cell_index,edit_dist):
+def match_cell_index(cell_indices,cell_indices_mismatch,cell_index,edit_dist):
     '''
     Edit distance match on the cell index
 
-    :param dict {cell_index:cellnumber}
+    :param dict cell_indices: {cell_index:cellnumber}
+    :param dict cell_indices_mismatch: {mismatched_cell_index:cell_index}
     :param str cell_index
     :param int edit_dist
     :return: Whether the cell index matches an valid list of indices
     :rtype: Bool
     '''
-
-    match = []
-    ## To reduce time complexity first check if the cell index is present
-    ## in the dictionary, this is an O(1) operation
     if cell_index in cell_indices:
-        return True
-    else: ## Need to traverse the list of indices and fuzzy match
-        if edit_dist > 0:
-            for index in cell_indices:
-                if edit_dist <= editdistance.eval(index,cell_index):
-                    match.append(index)
-                    ## Not breaking here because we want to make sure
-                    ## that the cell_index has a unique match to only
-                    ## 1 of the set of 96/384 cell indices
-            if len(match) == 1:
-                return True
-            else: ## To do: Book keeping when cell index
-                  ## matches to 2 or more indices in the list
-                return False
+        return (True,cell_index)
+    else:
+        if edit_dist == 1:
+            if cell_index in cell_indices_mismatch:
+                return (True,cell_indices_mismatch[cell_index])
+            else:
+                return (False,None)
         else:
-            return False
+            raise Exception("Only 1 mismatch allowed in cell index !")
 
 def create_cell_index_db(multiplex_file):
     '''
@@ -132,17 +122,32 @@ def create_read_id_hash(multiplex_file):
         d[key] = [cell_index,mt]
     return d
 
+def mutate(x):
+    ''' Returns all possible single base substitutions of a dna string
+    including N , to represent sequencing error
+    :param str x: the dna nucleotide sequence to mutate
+    :yields the possible mutated strings
+    '''
+    substitions = ['A','C','G','T','N']
+    for i in xrange(len(x)):
+        for b in substitions:
+            temp = list(x)
+            if temp[i] != b:
+                temp[i] = b
+                yield "".join(temp)
+
 def read_cell_index_file(cell_index_file):
     '''
     Read the file containing the cell indices and
     return it as a dict
 
     :param str cell_index_file: the cell index file
-    :return: list containing the cell indices
-    :rtype: dict
+    :return: tuple of dicts
+    :rtype: (dict,dict)
     :raises: Exception for duplicate cell index
-    '''
+    '''                
     d = collections.OrderedDict()
+    mismatch_d = {}
     i=1
     with open(cell_index_file,'r') as IN:
         for line in IN:
@@ -151,7 +156,13 @@ def read_cell_index_file(cell_index_file):
                 raise Exception('Duplicate cell index encountered !')
             d[key] = i
             i+=1
-    return d
+            # all possible single base mutations
+            for m_key in mutate(key):
+                if m_key in mismatch_d:
+                    raise Exception("Duplicate mutated cell index encountered !")
+                mismatch_d[m_key] = key
+                
+    return (d,mismatch_d)
 
 def write_metrics(metric_file,metric_dict,metrics):
     ''' Write Metrics
@@ -181,7 +192,7 @@ def write_fastq(read_info,OUT):
 
 @benchmark
 def create_cell_fastqs(base_dir,metric_file,cell_index_file,
-                       cell_multiplex_file,read_file1,wts=False):
+                       cell_multiplex_file,read_file1,editdist,wts=False):
     '''
     Demultiplex and create individual cell fastqs
 
@@ -190,6 +201,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
     :param str cell_index_file: file containing the valid cell indices
     :param str cell_multiplex_file: tsv file <read2_id> <cell_index> <mt>
     :param str read_file1: read1 fastq file
+    :param int editdist: whether to allow a single base mismatch in the cellindex. 0 or 1
     :param bool wts: whether this is for wts
     :return: nothing
     '''
@@ -205,7 +217,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
         polyA_motif = re.compile(r'^([ACGTN]*?[CGTN])([A]{9,}[ACGNT]*$)')
     else:
         polyA_motif = re.compile(r'^([ACGTN]{42,}[CGTN])([A]{8,}[ACGNT]{1,}$)')
-    cell_indices = read_cell_index_file(cell_index_file)
+    cell_indices,cell_indices_mismatch = read_cell_index_file(cell_index_file)
     read_id_hash = create_read_id_hash(cell_multiplex_file)
     reads_to_demultiplex = len(read_id_hash.keys())
     ## Create cell specific dirs and open file handles
@@ -236,8 +248,8 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
         key = read_id.split()[0]
         if key in read_id_hash:
             cell_index,mt = read_id_hash[key]
-            ret = match_cell_index(cell_indices,cell_index,0)
-            if ret == True:
+            match,cell_index = match_cell_index(cell_indices,cell_indices_mismatch,cell_index,editdist)
+            if match == True:
                 new_read_id = key+":%s"%mt ## CellIndex can be added here as well
                 trimmed_seq,trimming_index = trim_read(seq,polyA_motif)
                 if trimming_index: ## Non zero trimming index
@@ -268,7 +280,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
     metric_dict = collections.OrderedDict(
         [('reads total',num_reads),
          ('reads dropped, cell id not extracted',num_reads - reads_to_demultiplex),
-         ('reads dropped, cell id not matching oligo',reads_dropped_cellindex),
+         ('reads dropped, cell id not matching a used oligo within edit distance {} bp'.format(editdist),reads_dropped_cellindex),
          ('reads dropped, less than 25 bp',reads_dropped_size)
         ]
     )
