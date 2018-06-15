@@ -22,16 +22,17 @@ PYTHONPATH="" luigi --module single_cell_rnaseq WriteExcelSheet --samples-cfg sa
 
 ### A few important parameters which you have to update in the pipeline.cfg file :
 ```
-genome_dir : path to STAR genome index which is mounted on the container, i.e. /path/to/genome_dir/
-primer_file : path to the primer file corresponding to your catalog number for a targeted sequencing experiment
-annotation_gtf : path gencode annotation file , same as the one used to build the genome index with STAR
-ercc_bed : path to the ERCC spike-in primer file
-cell_index_file : path to the cell indices used in your experiment. File should have the oligo sequence of the indices, 1 per line
+genome_dir      :    path to STAR genome index which is mounted on the container, i.e. /path/to/genome_dir/
+primer_file     :    path to the primer file corresponding to your catalog number for a targeted sequencing experiment
+annotation_gtf  :    path gencode annotation file , same as the one used to build the genome index with STAR
+
+ercc_bed        :    path to the ERCC spike-in primer file 
+                     path in docker image : /home/qiauser/pipeline_data/Primers_bed/ERCC-mix2.bed          
+
+cell_index_file :    path to the cell indices used in your experiment. File should have the oligo sequence of the indices, 1 per line
+                     path in docker image : /home/qiauser/pipeline_data/Cell_Index/cell-index.list4.[96,384].txt
 
 Please update any other parameters in the [DEFAULT] and [config] section as it applies to your sequencing experiment.
-
-You can find the cell_index_file , primer_file , ercc_bed in the rpadmanabhan9/qiaseq-sc-rna:dev Docker Image under this path :
-/home/qiauser/pipeline_data/
 
 We have hosted some STAR indices in this gcp bucket : qiaseq-star-indices. To mount this bucket to your local system using gcsfuse :
 gcsfuse qiaseq-star-indices /path/to/genome_dir/
