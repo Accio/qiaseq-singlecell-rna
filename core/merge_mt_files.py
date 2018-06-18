@@ -53,7 +53,7 @@ def merge_count_files(basedir,out_file,sample_name,wts,ncells,files_to_merge):
                     out = out + '\t'+MT[key][str(cell)]
             OUT.write(out+'\n')
 
-def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sample_name,wts,ncells,files_to_merge):
+def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sample_name,wts,ncells,editdistance,files_to_merge):
     ''' Merge the metrics from primer/gene finding
 
     :param str basedir: the basedirectory
@@ -63,6 +63,7 @@ def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sam
     :param str sample_name: the sample name
     :param bool: wts: Whether whole transcriptome or not
     :param int ncells: the number of cell indices
+    :param int editdistance: edit distance mismatch for cell index
     :param list files_to_merge: which files to merge
     '''
     i = 0
@@ -108,20 +109,22 @@ def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sam
                 
             
     ## Write metrics for the sample
-    write_metrics_sample(metric_dict,metric_file,wts)
+    write_metrics_sample(metric_dict,metric_file,editdistance,wts)
     ## Write metrics for each cell to a file
     write_metrics_cells(metric_dict_per_cell,ncells,sample_name,metric_file_cell,wts)
     
-def write_metrics_sample(sample_metrics,outfile,wts):
+def write_metrics_sample(sample_metrics,outfile,editdistance,wts):
     ''' Write metrics on sample level
 
     :param dict sample_metrics: <metric> -> <val>
     :param str outfile: the outputfile to write the metrics
+    :param int editdistance : editdistance mismatch for matching cell id
     :param bool wts: whether this is whole transcriptome seq
     '''
     ## Check to make sure the metrics add up
     reads_total = int(sample_metrics['reads total'])
     ## Updated metrics to account for all N reads
+    dropped_metric = 'reads dropped, cell id not matching a used oligo within edit distance {} bp'.format(editdistance) 
     sample_metrics['reads dropped, cell id not extracted'] = sample_metrics['reads dropped, cell id not extracted'] - sample_metrics['reads dropped, all NNNNNN sequence']
     reads_dropped_demultiplexing = (
         int(sample_metrics['reads dropped, cell id not extracted']) + \
