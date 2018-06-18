@@ -128,7 +128,7 @@ def write_metrics_sample(sample_metrics,outfile,editdistance,wts):
     sample_metrics['reads dropped, cell id not extracted'] = sample_metrics['reads dropped, cell id not extracted'] - sample_metrics['reads dropped, all NNNNNN sequence']
     reads_dropped_demultiplexing = (
         int(sample_metrics['reads dropped, cell id not extracted']) + \
-        int(sample_metrics['reads dropped, cell id not matching oligo']) + \
+        int(sample_metrics[dropped_metric]) + \
         int(sample_metrics['reads dropped, less than 25 bp']) + \
         int(sample_metrics['reads dropped, all NNNNNN sequence'])
     )
