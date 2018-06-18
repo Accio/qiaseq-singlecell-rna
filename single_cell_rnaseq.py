@@ -451,7 +451,7 @@ class JoinCountFiles(luigi.Task):
             merge_count_files(self.sample_dir,self.count_file_primers,self.sample_name,wts,len(self.cell_indices),files_to_merge)            
         ## Merge metric files
         files_to_merge = glob.glob(os.path.join(self.sample_dir,"*/read_stats.txt"))
-        merge_metric_files(self.sample_dir,self.temp_metric_file,self.metric_file,self.metric_file_cell,self.sample_name,wts,len(self.cell_indices),files_to_merge)
+        merge_metric_files(self.sample_dir,self.temp_metric_file,self.metric_file,self.metric_file_cell,self.sample_name,wts,len(self.cell_indices),config().editdist,files_to_merge)
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
         logger.info("Finished Task: {x}-{y} {z}".format(x='JoinCountFiles',y=self.sample_name,z=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
