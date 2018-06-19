@@ -136,12 +136,13 @@ def mutate(x):
                 temp[i] = b
                 yield "".join(temp)
 
-def read_cell_index_file(cell_index_file):
+def read_cell_index_file(cell_index_file,cell_indices_used):
     '''
     Read the file containing the cell indices and
     return it as a dict
 
     :param str cell_index_file: the cell index file
+    :param str cell_indices_used: comma delimeted cell ids used in the experiment
     :return: tuple of dicts
     :rtype: (dict,dict)
     :raises: Exception for duplicate cell index
@@ -149,19 +150,20 @@ def read_cell_index_file(cell_index_file):
     d = collections.OrderedDict()
     mismatch_d = {}
     i=1
+    used_indices = set(cell_indices_used.split(','))
     with open(cell_index_file,'r') as IN:
         for line in IN:
             key = line.rstrip('\n')
             if key in d:
                 raise Exception('Duplicate cell index encountered !')
-            d[key] = i
-            i+=1
-            # all possible single base mutations
-            for m_key in mutate(key):
-                if m_key in mismatch_d:
-                    raise Exception("Duplicate mutated cell index encountered !")
-                mismatch_d[m_key] = key
-                
+            if 'C'+str(i) in used_indices:            
+                d[key] = i            
+                # all possible single base mutations
+                for m_key in mutate(key):
+                    if m_key in mismatch_d:
+                        raise Exception("Duplicate mutated cell index encountered !")
+                    mismatch_d[m_key] = key
+            i+=1                
     return (d,mismatch_d)
 
 def write_metrics(metric_file,metric_dict,metrics):
@@ -192,7 +194,7 @@ def write_fastq(read_info,OUT):
 
 @benchmark
 def create_cell_fastqs(base_dir,metric_file,cell_index_file,
-                       cell_multiplex_file,read_file1,editdist,wts=False):
+                       cell_multiplex_file,read_file1,editdist,cell_indices_used,wts=False):
     '''
     Demultiplex and create individual cell fastqs
 
@@ -202,6 +204,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
     :param str cell_multiplex_file: tsv file <read2_id> <cell_index> <mt>
     :param str read_file1: read1 fastq file
     :param int editdist: whether to allow a single base mismatch in the cellindex. 0 or 1
+    :param str cell_indices_used: comma delimeted string of cell indices to use for demux, other cell indices demuxed will be ignored
     :param bool wts: whether this is for wts
     :return: nothing
     '''
@@ -217,7 +220,7 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
         polyA_motif = re.compile(r'^([ACGTN]*?[CGTN])([A]{9,}[ACGNT]*$)')
     else:
         polyA_motif = re.compile(r'^([ACGTN]{42,}[CGTN])([A]{8,}[ACGNT]{1,}$)')
-    cell_indices,cell_indices_mismatch = read_cell_index_file(cell_index_file)
+    cell_indices,cell_indices_mismatch = read_cell_index_file(cell_index_file,cell_indices_used)
     read_id_hash = create_read_id_hash(cell_multiplex_file)
     reads_to_demultiplex = len(read_id_hash.keys())
     ## Create cell specific dirs and open file handles

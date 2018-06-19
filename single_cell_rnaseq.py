@@ -46,6 +46,7 @@ class config(luigi.Config):
     catalog_number = luigi.Parameter(description="The catalog number for this primer pool")
     species = luigi.Parameter(description="The species name")
     editdist = luigi.IntParameter(description="Whether to allow a single base mismatch in the cell index")
+    cell_indices_used = luigi.Parameter(description="Comma delimeted list of Cell Ids to use , i.e. C1,C2,C3,etc. If using all cell indices in the file , please specify 'all' here.")
     
 class MyExtTask(luigi.ExternalTask):
     ''' Checks whether the file specified exists on disk
@@ -167,11 +168,11 @@ class DeMultiplexer(luigi.Task):
         if config().seqtype.upper() == 'WTS':
             create_cell_fastqs(self.sample_dir,self.temp_metric_file,
                                self.cell_index_file,self.multiplex_file,
-                               self.R1_fastq,config().editdist,True)
+                               self.R1_fastq,config().editdist,True,config().cell_indices_used)
         else:
             create_cell_fastqs(self.sample_dir,self.temp_metric_file,
                                self.cell_index_file,
-                               self.multiplex_file,self.R1_fastq,config().editdist)
+                               self.multiplex_file,self.R1_fastq,config().editdist,config().cell_indices_used)
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
