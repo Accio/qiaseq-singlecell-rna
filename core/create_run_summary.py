@@ -129,7 +129,9 @@ def is_file_empty(infile):
     :returns Whether the file is empty or not
     :rtype bool
     '''
-    if infile.endswith('.gz'):
+    if not os.path.exists(infile):
+        return True
+    elif infile.endswith('.gz'):
         IN = gzip.open(infile,'r')
     else:
         IN = open(infile,'r')
