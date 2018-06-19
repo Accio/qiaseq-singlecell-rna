@@ -168,7 +168,7 @@ class DeMultiplexer(luigi.Task):
         if config().seqtype.upper() == 'WTS':
             create_cell_fastqs(self.sample_dir,self.temp_metric_file,
                                self.cell_index_file,self.multiplex_file,
-                               self.R1_fastq,config().editdist,True,config().cell_indices_used)
+                               self.R1_fastq,config().editdist,config().cell_indices_used,True)
         else:
             create_cell_fastqs(self.sample_dir,self.temp_metric_file,
                                self.cell_index_file,
