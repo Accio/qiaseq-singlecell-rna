@@ -156,7 +156,7 @@ def read_cell_index_file(cell_index_file,cell_indices_used):
             key = line.rstrip('\n')
             if key in d:
                 raise Exception('Duplicate cell index encountered !')
-            if 'C'+str(i) in used_indices:            
+            if 'C'+str(i) in used_indices or cell_indices_used == 'all':            
                 d[key] = i            
                 # all possible single base mutations
                 for m_key in mutate(key):
