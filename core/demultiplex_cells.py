@@ -99,8 +99,8 @@ def match_cell_index(cell_indices,cell_indices_mismatch,cell_index,edit_dist):
                 return (True,cell_indices_mismatch[cell_index])
             else:
                 return (False,None)
-        else:
-            raise Exception("Only 1 mismatch allowed in cell index !")
+        else: # editdist 0 or > 1
+            return (False,None)
 
 def create_cell_index_db(multiplex_file):
     '''
