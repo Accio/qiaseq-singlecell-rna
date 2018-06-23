@@ -34,15 +34,18 @@ PYTHONPATH="" luigi --module single_cell_rnaseq WriteExcelSheet --samples-cfg /h
 
 ### A few important parameters which you may have to update in the pipeline.cfg file according to your experiment :
 ```
-primer_file     :    path to the primer file corresponding to your catalog number for a targeted sequencing experiment
-annotation_gtf  :    path to gencode annotation file , same as the one used to build the genome index with STAR. Please check our
-                     qiaseq-star-indices bucket for path to the annotation gtf file. 
-
-ercc_bed        :    path to the ERCC spike-in primer file 
-                     path in docker image : /home/qiauser/pipeline_data/Primers_bed/ERCC-mix2.bed          
-
-cell_index_file :    path to the cell indices used in your experiment. File should have the oligo sequence of the indices, 1 per line
-                     path in docker image : /home/qiauser/pipeline_data/cell-index.list4.[96,384].txt
+seqtype           :    change to targetted for a targeted sequencing experiment
+primer_file       :    path to the primer file corresponding to your catalog number for a targeted sequencing experiment
+is_low_input      :    0 or 1 - whether this was a low-input experiment. 
+                       Please change the WriteExcelSheet task in the luigi command line to ClusteringAnalysis 
+                       for a singlecell experiment
+annotation_gtf    :    path to gencode annotation file , same as the one used to build the genome index with STAR. Please check our
+                       qiaseq-star-indices bucket for path to the annotation gtf file. 
+cell_index_file   :    path to the cell indices used in your experiment. File should have the oligo sequence of the indices, 1 per line
+                       path in docker image : /home/qiauser/pipeline_data/cell-index.list4.[96,384].txt
+cell_indices_used :    comma delimeted list of cell indices used in your experiment - C1,C2,C3,C4,C5,.. 
+                       to use all 96/384 to demux specify as : all
+editdist          :    0 or 1 - editdistance mismatch for matching to known cell index set
 
 Please update any other parameters in the [DEFAULT] and [config] section as it applies to your sequencing experiment.
 
@@ -53,3 +56,4 @@ Description of the analysis pipeline and output files can be found in the ***QIA
 
 We recommend you run this on a machine with atleast  60 GB RAM and 16 cores. To increase/decrease parallelism please tweak the **workers** command line option and/or the **num_cores** parameter in pipeline.cfg
 
+We are using luigi (https://github.com/spotify/luigi) to trigger our workflow. This allows for re-run on failure and fault tolerance among other features. The **single_cell_rnaseq.py** contains the task definitions for the various steps involved. The logic for the tasks themselves are under core/ in different modules.  
