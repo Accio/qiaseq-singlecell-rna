@@ -2,7 +2,7 @@
 
 ### QuickStart Example
 
-The below commands will help you understand how to run our workflow. Please try to get this to run before attempting to modify any parameters or code. We will be running a low-input whole transcriptome example , the fastq files are inside the docker image.
+The below commands will help you understand how to run our workflow. Please try to get this to run before attempting to modify any parameters or code. The example is from a low-input whole transcriptome experiment, the fastq files and config files are inside the docker image here : /home/qiauser/example/
 ```bash
 # get the docker image with all the dependencies
 sudo docker pull rpadmanabhan9/qiaseq-sc-rna:dev
@@ -18,16 +18,16 @@ gsutil -m cp -r gs://qiaseq-star-indices/human/STAR_index /path/to/your/genome_d
 # please specify /path/to/your_run_dir/ for storing the output files. This folder must be created by you.
 # please specify /path/to/your/genome_dir/ . This is the same as the directory you downloaded the Genome index to
 
-sudo docker run -i -v /path/to/your_run_dir/:/home/qiauser/rundir/ -v /path/to/your/genome_dir/:/home/qiauser/pipeline_data/STAR_index/ rpadmanabhan9/qiaseq-sc-rna:dev bash
+sudo docker run -it -v /path/to/your_run_dir/:/home/qiauser/rundir/ -v /path/to/your/genome_dir/:/home/qiauser/pipeline_data/STAR_index/ rpadmanabhan9/qiaseq-sc-rna:dev
 
 # note : you are inside the container now
 # clone this repository
 cd /srv/qgen/code/
-git https://github.com/qiaseq/qiaseq-singlecell-rna.git
+git clone https://github.com/qiaseq/qiaseq-singlecell-rna.git
 
 # Run the pipeline, please modify --workers according the number of CPUs on your system. 
 cd qiaseq-singlecell-rna
-EXPORT_LUIGI_CONFIG_PATH='/home/qiauser/example/pipeline.cfg'
+export LUIGI_CONFIG_PATH='/home/qiauser/example/pipeline.cfg'
 luigid --background &
 PYTHONPATH="" luigi --module single_cell_rnaseq WriteExcelSheet --samples-cfg /home/qiauser/example/samples.cfg --workers 22
 ```
