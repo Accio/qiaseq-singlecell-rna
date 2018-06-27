@@ -231,10 +231,11 @@ def create_cell_fastqs(base_dir,metric_file,cell_index_file,
             if exc.errno == errno.EEXIST and os.path.isdir(path):
                 pass
             else:
-                raise exc
-    map(lambda x:mkdir_p(os.path.join(base_dir,'Cell'+str(x[0]+1)+'_'+x[1])),
-        enumerate(cell_indices))
-
+                raise exc            
+    for cell_index,cell_num in cell_indices.items():
+        path = os.path.join(base_dir,'Cell'+str(cell_num)+'_'+cell_index)
+        mkdir_p(path)
+        
     for cell_index,cell_num in cell_indices.items():
         fastq=os.path.join(base_dir,'Cell'+str(cell_num)+'_'+cell_index+
                                          '/cell_'+str(cell_num)+'_R1.fastq')
