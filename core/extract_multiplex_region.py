@@ -138,7 +138,7 @@ def extract_region(vector,error,cell_index_len,mt_len,isolator,read2_fastq,outfi
     func = partial(find_motif,motif,match_group)
     print "\nLooking for the motif : %s in the sequencing reads.\n"%motif
     ## Print out results , takes in input a list of tuples which are processed in parallel by func()
-    print_result(p.map(func,iterate_fastq(read2_fastq)),outfile,metricfile,cell_index_len)
+    print_result(p.imap(func,iterate_fastq(read2_fastq),chunksize=cores*40000),outfile,metricfile,cell_index_len)
     p.close()
     p.join()
 
