@@ -230,7 +230,7 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
     
 
     if species.upper() == 'HUMAN':
-        gencode = "Gencode Release 23"
+        gencode = "Gencode Release 28"
         genome = "GRCh38"
     elif species.upper() == "MOUSE":
         gencode = "Gencode Release M15"
