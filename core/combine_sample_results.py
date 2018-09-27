@@ -111,7 +111,7 @@ def read_sample_metrics(metric_file,metric_dict):
     ''' Read a sample metrics file
     '''
     with open(metric_file,'r') as IN:
-        sample = os.path.basename(metric_file).rstrip("_read_stats.txt")
+        sample = os.path.basename(metric_file).replace("_read_stats.txt","")
         assert sample != '', "Error could not identify sample name from file path : {}".format(metric_file)
         for line in IN:
             metric,val = line.strip('\n').split(':')
@@ -187,12 +187,15 @@ def combine_sample_metrics(files_to_merge,outfile,is_lowinput,cells_dropped,outp
             for sample_index in dropped_metrics[metric]:
                 if metric.startswith('reads used,'):
                     total_used_reads[sample_index]+=sample_metrics[metric][sample_index]
+                    
+                assert sample_index in sample_metrics[metric], "Incorrect sample index parsing when aggregating metrics!"
                 sample_metrics[metric][sample_index] = sample_metrics[metric][sample_index] - \
                                                        dropped_metrics[metric][sample_index]
 
     if new_metric in dropped_metrics: ## Check if cells are dropped
         for sample_index in dropped_metrics[metric]: ## Update mean reads per UMI to account for dropping
-            sample_metrics['mean reads per UMI'][sample_index] = total_used_reads[sample_index]/float(sample_metrics['total UMIs'][sample_index])
+            sample_metrics['mean reads per UMI'][sample_index] = 0 if sample_metrics['total UMIs'][sample_index] == 0 \
+                                                                 else total_used_reads[sample_index]/float(sample_metrics['total UMIs'][sample_index])
                 
     ## Combine and write resultant output file
     return_metrics = defaultdict(int)

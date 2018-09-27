@@ -495,7 +495,7 @@ class CombineSamples(luigi.Task):
         ## Annotation information from gencode
         if config().seqtype.upper() == 'WTS':
             global GENE_TREE
-            GENE_TREE = create_gene_tree(config().annotation_gtf,config().ercc_bed)
+            GENE_TREE = create_gene_tree(config().annotation_gtf,config().ercc_bed,config().species)
         else:
             global GENE_HASH
             GENE_HASH = create_gene_hash(config().annotation_gtf,config().ercc_bed)

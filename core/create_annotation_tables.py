@@ -52,11 +52,12 @@ def create_gene_hash(annotation_gtf,ercc_bed):
 
     return gene_info
 
-def create_gene_tree(annotation_gtf,ercc_bed,merge_coordinates=False):
+def create_gene_tree(annotation_gtf,ercc_bed,species,merge_coordinates=False):
     '''
     :param str annotation_gtf : a gtf file for identifying genic regions
     :param str ercc_bed: a bed file for storing information about ERCC regions
-
+    :param str species: species name (qiagen's internal alias)
+    
     :return An interval tree with annotation gene and ercc annotation information
     :rtype object : IntervalTree data structure
     '''
@@ -64,6 +65,8 @@ def create_gene_tree(annotation_gtf,ercc_bed,merge_coordinates=False):
     genes = defaultdict(list)
     valid_chromosomes = ["chr"+str(i) for i in range(0,23)]    
     valid_chromosomes.extend(["chrX","chrY","chrM","chrMT"])
+    well_annotated = ['human','mouse']
+    
     with open_by_magic(annotation_gtf) as IN:
         for line in IN:
             if line[0]=='#':
@@ -71,7 +74,7 @@ def create_gene_tree(annotation_gtf,ercc_bed,merge_coordinates=False):
             contents = line.strip('\n').split('\t')
             if contents[2] == 'gene':
                 chrom = contents[0]
-                if chrom not in valid_chromosomes: ## Skip contigs
+                if species.lower() in well_annotated and chrom not in valid_chromosomes: ## Skip contigs
                     continue
                 start = int(contents[3])
                 end = int(contents[4])
