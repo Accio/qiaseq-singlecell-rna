@@ -121,7 +121,7 @@ def calc_median_cell_metrics(cell_metrics,metric,cells_to_drop=[],drop_outlier_c
         if cell not in cells_to_drop:
             temp.append(cell_metrics[cell][metric])
 
-    return 0 if(set(temp) == set([0])) else int(np.median(temp))
+    return 0 if(temp == []) else int(np.median(temp)) # handle cases when no reads present
     
 def is_file_empty(infile):
     ''' Helper function to check if a gzip/regular file is empty
@@ -296,7 +296,8 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
     ## Open the excel file for writing and format the columns
     workbook = Workbook(output_excel)
     bold = workbook.add_format({'bold': True})
-    num_fmt = workbook.add_format({'num_format': '#,###'})    
+    num_fmt = workbook.add_format({'num_format': "#,##0"})
+
     worksheet = workbook.add_worksheet()
     ## Hard coding column width, I highly doubt this will break.
     ## PCA and K-means clustering or Gencode Release 23 are the longest words in the second column
