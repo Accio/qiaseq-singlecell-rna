@@ -121,7 +121,7 @@ def calc_median_cell_metrics(cell_metrics,metric,cells_to_drop=[],drop_outlier_c
         if cell not in cells_to_drop:
             temp.append(cell_metrics[cell][metric])
 
-    return int(np.median(temp))
+    return 0 if(set(temp) == set([0])) else int(np.median(temp))
     
 def is_file_empty(infile):
     ''' Helper function to check if a gzip/regular file is empty
@@ -242,8 +242,11 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
         gencode = "Ensembl Release 93"
         genome = "Ensembl Release 93"
     elif species.upper() == "YEAST":
-        gencode = "Ensembl Release 93"
-        genome = "Ensembl Release 93"        
+        gencode = "Ensembl Release 94"
+        genome = "Ensembl Release 94"
+    elif species.upper() == "C ELEGANS":
+        gencode = "Ensembl Release 94"
+        genome = "Ensembl Release 94"
     else:
         raise Exception("Unsupported species ! {}".format(species))
     
@@ -323,7 +326,8 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
     worksheet.write(9,0,"Read fragments, used")
     worksheet.write_number(9,1,reads_used,num_fmt)
     
-    worksheet.write_row(10,0,["Read fragments per UMI",float(float_to_string(float(reads_used)/umis))])
+    rpu = 0 if umis == 0 else float(reads_used)/umis 
+    worksheet.write_row(10,0,["Read fragments per UMI",float(float_to_string(rpu))])
     
     worksheet.write(11,0,"UMIs")
     worksheet.write_number(11,1,umis,num_fmt)
