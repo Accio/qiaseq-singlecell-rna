@@ -653,35 +653,41 @@ class ClusteringAnalysis(luigi.Task):
         ## Calculate some statistics for running the appropriate normalization
         cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc = calc_stats_gene_count(self.combined_count_file)
         median_ercc = calc_median_cell_metrics(cell_stats,'umis_ercc',cells_to_drop = [], drop_outlier_cells=True)
-        
-	## Run clustering analysis        
-        if median_ercc < 100:
-            logger.info("Running scran script with no ercc normalization")
-            run_cmd(self.cmd_scran_low_ercc)
-            normalization = "total-UMIs"
-            hvg = "N/A"
+
+        normalization = "N/A"
+        hvg           = "N/A"
+
+        if num_umis_genes > 200: # some arbitrary cutoff to decide whether to run secondary analysis or not        
+            ## Run clustering analysis
+            if median_ercc < 100:
+                logger.info("Running scran script with no ercc normalization")
+                run_cmd(self.cmd_scran_low_ercc)
+                normalization = "total-UMIs"
+                hvg = "N/A"
+            else:
+                try:
+                    run_cmd(self.cmd_basics)
+                    normalization = "BASiCS"
+                    hvg = "BASiCS"
+                except subprocess.CalledProcessError as e1:
+                    logger.info("Failed to run BASiCS based clustering : \n{e1}".format(e1=e1))
+                    if e1.returncode == 99: ## MCMC failed to converge
+                        try:
+                            normalization = "scran"
+                            hvg = "scran"
+                            clustering_out = os.path.join(self.output_dir,'secondary_analysis')
+                            misc_out = os.path.join(clustering_out,'misc')
+                            if os.path.exists(clustering_out):
+                                run_cmd("mv {old} {new}".format(old=clustering_out,new=clustering_out+"_basics_failed"))
+                            if os.path.exists(misc_out):
+                                run_cmd("mv {old} {new}".format(old=misc_out,new=misc_out+"_basics_failed"))
+                            run_cmd(self.cmd_scran)
+                        except Exception as e2:
+                            raise(Exception(e2))
+                    else: ## Raise Exception if failed for reasons other than MCMC
+                        raise(Exception(e1))
         else:
-            try:
-                run_cmd(self.cmd_basics)
-                normalization = "BASiCS"
-                hvg = "BASiCS"
-            except subprocess.CalledProcessError as e1:
-                logger.info("Failed to run BASiCS based clustering : \n{e1}".format(e1=e1))
-                if e1.returncode == 99: ## MCMC failed to converge
-                    try:
-                        normalization = "scran"
-                        hvg = "scran"
-                        clustering_out = os.path.join(self.output_dir,'secondary_analysis')
-                        misc_out = os.path.join(clustering_out,'misc')
-                        if os.path.exists(clustering_out):
-                            run_cmd("mv {old} {new}".format(old=clustering_out,new=clustering_out+"_basics_failed"))
-                        if os.path.exists(misc_out):
-                            run_cmd("mv {old} {new}".format(old=misc_out,new=misc_out+"_basics_failed"))
-                        run_cmd(self.cmd_scran)
-                    except Exception as e2:
-                        raise(Exception(e2))
-                else: ## Raise Exception if failed for reasons other than MCMC
-                    raise(Exception(e1))
+            logger.info("Observed < 200 UMIs for genes. Not running Clustering/D.E.")
         
         ## Create Run level summary file
         metrics_from_countfile = (cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc)

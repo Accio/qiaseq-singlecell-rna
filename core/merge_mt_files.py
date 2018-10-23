@@ -175,9 +175,11 @@ def write_metrics_sample(sample_metrics,outfile,editdistance,wts):
                 int(sample_metrics['reads used, aligned to ERCC, unique loci']) + \
                 int(sample_metrics['reads used, aligned to ERCC, multiple loci'])
                 )            
-                
-        temp=(total_reads/sample_metrics['total UMIs'])
-        M.write('mean reads per UMI: {}\n'.format(float_to_string(round(temp,2))))
+        if sample_metrics['total UMIs'] == 0:
+            rpu = 0
+        else:
+            rpu=(total_reads/sample_metrics['total UMIs'])
+        M.write('mean reads per UMI: {}\n'.format(float_to_string(round(rpu,2))))
         
     assert (reads_total == reads_used + reads_dropped_demultiplexing + reads_dropped_counting),"Read accounting failed !"
         
