@@ -686,17 +686,20 @@ class ClusteringAnalysis(luigi.Task):
                             raise(Exception(e2))
                     else: ## Raise Exception if failed for reasons other than MCMC
                         raise(Exception(e1))
+            clustering_out = os.path.join(self.output_dir,'secondary_analysis')
+            temp = glob.glob(os.path.join(clustering_out,'*.step1_dropped_cells.csv'))
+            if len(temp) != 1:
+                raise Exception("Could not find the cells_dropped_file correctly !")
+            cells_dropped_file = temp[0]
+            has_clustering_run = True
         else:
             logger.info("Observed < 200 UMIs for genes. Not running Clustering/D.E.")
+            has_clustering_run = False
+            cells_dropped_file = None
         
         ## Create Run level summary file
         metrics_from_countfile = (cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc)
-        clustering_out = os.path.join(self.output_dir,'secondary_analysis')
-        temp = glob.glob(os.path.join(clustering_out,'*.step1_dropped_cells.csv'))
-        if len(temp) != 1:            
-            raise Exception("Could not find the cells_dropped_file correctly !")
-        cells_dropped_file = temp[0]        
-        write_run_summary(self.run_summary_file,True,self.runid,config().seqtype,config().species,self.samples_cfg,self.combined_sample_metrics_file,self.combined_cell_metrics_file,cells_dropped_file,metrics_from_countfile,normalization,hvg)
+        write_run_summary(self.run_summary_file,has_clustering_run,self.runid,config().seqtype,config().species,self.samples_cfg,self.combined_sample_metrics_file,self.combined_cell_metrics_file,cells_dropped_file,metrics_from_countfile,normalization,hvg)
         # Add pdf file to run directory
         run_cmd("cp /srv/qgen/code/qiaseq-singlecell-rna/QIAseqUltraplexRNA_README.pdf {}".format(self.output_dir))
         with open(self.verification_file,'w') as IN:
@@ -764,8 +767,9 @@ class WriteExcelSheet(luigi.Task):
         write_excel_workbook(self.files_to_write,self.combined_workbook,catalog_number,config().species)
         ## Create Run level summary file
         cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc = calc_stats_gene_count(self.combined_count_file)
-        metrics_from_countfile = (cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc)        
-        write_run_summary(self.run_summary_file,False,self.runid,config().seqtype,config().species,self.samples_cfg,self.combined_sample_metrics_file,self.combined_cell_metrics_file,None,metrics_from_countfile,None,None)
+        metrics_from_countfile = (cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc)
+        has_clustering_run = False
+        write_run_summary(self.run_summary_file,has_clustering_run,self.runid,config().seqtype,config().species,self.samples_cfg,self.combined_sample_metrics_file,self.combined_cell_metrics_file,None,metrics_from_countfile,None,None)
         # Add pdf file to run directory
         run_cmd("cp /srv/qgen/code/qiaseq-singlecell-rna/QIAseqUltraplexRNA_README.pdf {}".format(self.output_dir))        
         with open(self.verification_file,'w') as IN:
