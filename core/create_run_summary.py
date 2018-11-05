@@ -200,8 +200,8 @@ def identify_DE_method_used(runid):
     except subprocess.CalledProcessError:
         return 'SCDE'    
     
-def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
-                      samples_cfg,sample_metrics_file,cell_metrics_file,
+def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,genome,
+                      annotation,samples_cfg,sample_metrics_file,cell_metrics_file,
                       cells_dropped_file,metrics_from_countfile,
                       normalization_method,hvg_method):
     '''
@@ -210,6 +210,8 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
     :param str run_id: the gce vm job_id
     :param str seqtype: the library/protocol type, i.e. targeted, poly-A transcriptome, drop-seq 
     :param str species: the species name, i.e. Human, Mouse, Rat
+    :param str genome: genome build version i.e. GRCh38 , Ensembl94 ,etc.
+    :param str annotation : genome annotation version i.e. Gencode Release 28 , Ensembl 94 , etc.
     :param str samples_cfg: the config file with sample level info like sample name
     :param str sample_metrics_file: the sample metrics file
     :param str cell_metrics_file: the cell metrics file
@@ -227,31 +229,6 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
         seqtype = 'poly-A-transcriptome'
     else:
         seqtype = 'targeted'
-    
-
-    if species.upper() == 'HUMAN':
-        gencode = "Gencode Release 28"
-        genome = "GRCh38"
-    elif species.upper() == "MOUSE":
-        gencode = "Gencode Release M15"
-        genome = "GRCm38"
-    elif species.upper() == "RAT":
-        gencode = "Ensembl Release 91"
-        genome = "Ensembl Release 91"
-    elif species.upper() == "MACAQUE":
-        gencode = "Ensembl Release 93"
-        genome = "Ensembl Release 93"
-    elif species.upper() == "YEAST":
-        gencode = "Ensembl Release 94"
-        genome = "Ensembl Release 94"
-    elif species.upper() == "CELEGANS":
-        gencode = "Ensembl Release 94"
-        genome = "Ensembl Release 94"
-    elif species.upper() == "DROSOPHILA":
-        gencode = "Ensembl Release 94"
-        genome = "Ensembl Release 94"
-    else:
-        raise Exception("Unsupported species ! {}".format(species))
     
     aggregated_metrics = read_sample_metrics(sample_metrics_file)
     cell_metrics = read_cell_metrics(cell_metrics_file)
@@ -318,7 +295,7 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
     worksheet.write_row(1,0,["Job identifier",run_id])
     worksheet.write_row(2,0,["Library protocol",seqtype])    
     worksheet.write_row(3,0,["Reference genome",genome])
-    worksheet.write_row(4,0,["Transcriptome models",gencode])
+    worksheet.write_row(4,0,["Transcriptome models",annotation])
     worksheet.write_row(5,0,["Read mapping","STAR version 2.5.3a"])
     
     worksheet.write_row(6,0,[]) ## Blank    

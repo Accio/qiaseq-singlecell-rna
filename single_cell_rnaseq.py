@@ -45,6 +45,8 @@ class config(luigi.Config):
     is_low_input = luigi.Parameter(description="Whether the sequencing protocol was for a low input application")
     catalog_number = luigi.Parameter(description="The catalog number for this primer pool")
     species = luigi.Parameter(description="The species name")
+    genome = luigi.Parameter(description="The reference genome build version",default="Unknown")
+    annotation = luigi.Parameter(description="The genome annotation version",default="Unknown")
     editdist = luigi.IntParameter(description="Whether to allow a single base mismatch in the cell index")
     cell_indices_used = luigi.Parameter(description="Comma delimeted list of Cell Ids to use , i.e. C1,C2,C3,etc. If using all cell indices in the file , please specify 'all' here.")
     
@@ -699,7 +701,7 @@ class ClusteringAnalysis(luigi.Task):
         
         ## Create Run level summary file
         metrics_from_countfile = (cell_stats,num_genes,num_ercc,num_umis_genes,num_umis_ercc)
-        write_run_summary(self.run_summary_file,has_clustering_run,self.runid,config().seqtype,config().species,self.samples_cfg,self.combined_sample_metrics_file,self.combined_cell_metrics_file,cells_dropped_file,metrics_from_countfile,normalization,hvg)
+        write_run_summary(self.run_summary_file,has_clustering_run,self.runid,config().seqtype,config().species,config().genome,config().annotation,self.samples_cfg,self.combined_sample_metrics_file,self.combined_cell_metrics_file,cells_dropped_file,metrics_from_countfile,normalization,hvg)
         # Add pdf file to run directory
         run_cmd("cp /srv/qgen/code/qiaseq-singlecell-rna/QIAseqUltraplexRNA_README.pdf {}".format(self.output_dir))
         with open(self.verification_file,'w') as IN:
