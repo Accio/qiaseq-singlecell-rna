@@ -247,6 +247,9 @@ def write_run_summary(output_excel,has_clustering_run,run_id,seqtype,species,
     elif species.upper() == "CELEGANS":
         gencode = "Ensembl Release 94"
         genome = "Ensembl Release 94"
+    elif species.upper() == "DROSOPHILA":
+        gencode = "Ensembl Release 94"
+        genome = "Ensembl Release 94"
     else:
         raise Exception("Unsupported species ! {}".format(species))
     
