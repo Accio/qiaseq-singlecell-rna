@@ -5,14 +5,12 @@ import gzip
 import sys
 import luigi
 import logging
-import sqlite3
 import ConfigParser
 import datetime
 ## Modules from this project
 sys.path.append(os.path.join(os.path.dirname(
     os.path.realpath(__file__)),'core'))
-from extract_multiplex_region import extract_region
-from demultiplex_cells import create_cell_fastqs
+from demultiplex_cells import demux
 from align_transcriptome import star_alignment,star_load_index,star_remove_index,run_cmd
 from count_mt import count_umis,count_umis_wts
 from merge_mt_files import merge_count_files,merge_metric_files
@@ -99,9 +97,9 @@ class DeMultiplexer(luigi.Task):
         logger.info("Started Task: {x}-{y} {z}".format(x='DeMultiplexer',y=self.sample_name,z=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
         is_wts = seqtype.upper() == "WTS"
         return_demux_rate = True
-        demux_rate = demultiplex_cells.demux(self.R1_fastq,self.R2_fastq,self.cell_index_file,self.sample_dir,self.temp_metric_file,
-                                             config().cell_indices_used,self.vector_sequence,self.instrument,is_wts,return_demux_rate,
-                                             self.cell_index_len,self.mt_len,config().editdist,self.error,self.num_cores,config().buffer_size)
+        demux_rate = demux(self.R1_fastq,self.R2_fastq,self.cell_index_file,self.sample_dir,self.temp_metric_file,
+                           config().cell_indices_used,self.vector_sequence,self.instrument,is_wts,return_demux_rate,
+                           self.cell_index_len,self.mt_len,config().editdist,self.error,self.num_cores,config().buffer_size)
         # check if we have enough reads to go forward
         if demux_rate >= 0.10:
             raise UserWarning("demultiplex_cells:< 10% of reads demultiplexed for sample : {sample}".format(sample=self.sample_name))
