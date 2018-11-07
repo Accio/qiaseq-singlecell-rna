@@ -292,7 +292,7 @@ def process_reads(args,buffer_):
                 i+=1
                 continue
 
-            trimmed_r1_lines = b"\n".join([new_read_id,r1_trimmed_seq,r1_trimmed_seq,b"+",r1_trimmed_qual])
+            trimmed_r1_lines = b"\n".join([new_read_id,r1_trimmed_seq,b"+",r1_trimmed_qual])
             out_lines_r1[cellid].append(trimmed_r1_lines)
             
         i+=1
@@ -341,7 +341,8 @@ def write_metrics(metric_file,metric_dict,metrics):
             OUT.write("{metrict}: {value}\n".format(metrict=key, value=val))
     
 def demux(r1,r2,cell_index_file,base_dir,out_metric_file,cell_indices_used,vector,
-          instrument,wts,return_demux_rate,cell_index_len,umi_len,editdist,error,ncpu,buffer_size):
+          instrument,wts,return_demux_rate,cell_index_len,umi_len,editdist,error,ncpu,buffer_size,
+          verbose = False):
     ''' Demultiplex and write fastq files for each cell
     :param str r1: R1 fastq file
     :param str r2: R2 fastq file
@@ -359,6 +360,7 @@ def demux(r1,r2,cell_index_file,base_dir,out_metric_file,cell_indices_used,vecto
     :param int error : Number of Indels/SNPs to tolerate in vector sequence
     :param int ncpu: Number of CPUs to use
     :param int buffer_size : Read these many MegaBytes(MB) from fastq file to memory for each read pair for each cpu
+    :param bool verbose : Whether to verbosely log
     '''
 
     wts                = bool(wts)
@@ -427,9 +429,11 @@ def demux(r1,r2,cell_index_file,base_dir,out_metric_file,cell_indices_used,vecto
 
                 out_r1 = b"\n".join(trimmed_r1_lines[cell])
                 FASTQS[cell_index].write(out_r1)
+                FASTQS[cell_index].write(b"\n")
                 
         nchunk += 1
-        logger.info("Processed {} read fragments".format(total_reads))
+        if verbose:
+            logger.info("Processed {} read fragments".format(total_reads))
 
     # write final metrics
     # 1. Per cell level
