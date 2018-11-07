@@ -75,12 +75,25 @@ class DeMultiplexer(luigi.Task):
 
     def __init__(self,*args,**kwargs):
         ''' Class constructor
-        '''
+        '''        
         super(DeMultiplexer,self).__init__(*args,**kwargs)
+        # set up folder structure
+        # sample level directory
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
-        self.temp_metric_file = os.path.join(self.sample_dir,
-                                       '%s_read_stats.temp.txt'%self.sample_name)
+        if not os.path.exists(self.sample_dir):
+            os.makedirs(self.sample_dir)
+        # for storing verification files for task completion check
         self.target_dir = os.path.join(self.sample_dir,'targets')
+        if not os.path.exists(self.target_dir):
+            os.makedirs(self.target_dir)
+        # for storing some log files    
+        self.logdir = os.path.join(self.sample_dir,'logs')
+        if not os.path.exists(self.logdir):
+            os.makedirs(self.logdir)
+
+        # metric file from this task    
+        self.temp_metric_file = os.path.join(self.sample_dir,
+                                       '%s_read_stats.temp.txt'%self.sample_name)            
         ## The verification file for this task
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
@@ -95,13 +108,13 @@ class DeMultiplexer(luigi.Task):
         ''' Work entails demultiplexing of Fastqs
         '''
         logger.info("Started Task: {x}-{y} {z}".format(x='DeMultiplexer',y=self.sample_name,z=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-        is_wts = seqtype.upper() == "WTS"
+        is_wts = config().seqtype.upper() == "WTS"
         return_demux_rate = True
         demux_rate = demux(self.R1_fastq,self.R2_fastq,self.cell_index_file,self.sample_dir,self.temp_metric_file,
                            config().cell_indices_used,self.vector_sequence,self.instrument,is_wts,return_demux_rate,
-                           self.cell_index_len,self.mt_len,config().editdist,self.error,self.num_cores,config().buffer_size)
+                           self.cell_index_len,self.mt_len,config().editdist,self.num_errors,self.num_cores,config().buffer_size)
         # check if we have enough reads to go forward
-        if demux_rate >= 0.10:
+        if demux_rate < 0.10:
             raise UserWarning("demultiplex_cells:< 10% of reads demultiplexed for sample : {sample}".format(sample=self.sample_name))
         
         ## Create the verification file
