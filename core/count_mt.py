@@ -14,7 +14,6 @@ from Bio.Seq import Seq
 from find_primer import find_primer
 from find_gene import find_gene
 from demultiplex_cells import write_metrics
-from extract_multiplex_region import open_by_magic
 from create_annotation_tables import create_gene_tree
 
 def grouper(iterable,n=750000):
