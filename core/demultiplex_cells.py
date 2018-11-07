@@ -161,7 +161,7 @@ def mkdir_p(path):
         else:
             raise exc
 
-def id_umi_cellid_nextseq(r2_seq,cell_index_len,umi_len):
+def id_cell_umi_nextseq(r2_seq,cell_index_len,umi_len):
     ''' Identify cell id and umi region for nextseq reads
     '''
     if len(r2_seq) >= cell_index_len + umi_len - 1: # allow 1 base offset
@@ -171,7 +171,7 @@ def id_umi_cellid_nextseq(r2_seq,cell_index_len,umi_len):
     else:
         return (None,None)
 
-def id_umi_cellid(r2_seq,cell_index_len,umi_len,vector,error):
+def id_cell_umi(r2_seq,cell_index_len,umi_len,vector,error):
     ''' Identify cell id and umi region for MiSeq/HiSeq reads
     '''
     found = False
@@ -238,12 +238,11 @@ def process_reads(args,buffer_):
                 raise UserWarning("demultiplex_cells:Read has different length qual and seq strings {}}".format(temp_r1_readid))
 
             # extract cell id , umi region from R2
-            stop = False            
-            pattern,match_group = _REGEX_["r2_structure"]
+            stop = False
             if instrument.upper() == "NEXTSEQ":
-                cellid,umi = id_umi_cellid_nextseq(r2_seq,cell_index_len,umi_len)
+                cellid,umi = id_cell_umi_nextseq(r2_seq,cell_index_len,umi_len)
             else:
-                cellid,umi = id_umi_cellid(r2_seq,cell_index_len,umi_len,vector,error)
+                cellid,umi = id_cell_umi(r2_seq,cell_index_len,umi_len,vector,error)
                 
             if cellid:
                 if cellid not in cell_indices:                    
@@ -315,7 +314,7 @@ def compile_regex(wts,instrument,multiplex_len,vector,error):
     else:
         r1_polyA = re.compile(r'^([ACGTN]{42,}[CGTN])([A]{8,}[ACGNT]{1,}$)')
 
-    # deprecated not used anymore
+    # deprecated not used anymore; kept here for reference
     if instrument.upper() == 'NEXTSEQ':
         r2_structure = regex.compile(r'(([ACGTN]{%i})[ACGTN]*)'%(multiplex_len))
         match_group = 2
