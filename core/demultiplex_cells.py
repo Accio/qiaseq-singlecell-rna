@@ -1,4 +1,3 @@
-from pathos import multiprocessing
 import gzip
 import functools
 import logging
@@ -10,16 +9,11 @@ import re
 import edlib
 
 import regex
+from pathos import multiprocessing
 
 import pyximport
 pyximport.install(reload_support=True)
 from _utils import two_fastq_heads
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-ch = logging.StreamHandler(sys.stdout)
-logger.addHandler(ch)
-
 
 # Metric names
 # 1. Per cell level
@@ -342,7 +336,7 @@ def write_metrics(metric_file,metric_dict,metrics):
     
 def demux(r1,r2,cell_index_file,base_dir,out_metric_file,cell_indices_used,vector,
           instrument,wts,return_demux_rate,cell_index_len,umi_len,editdist,error,ncpu,buffer_size,
-          verbose = False):
+          logfile):
     ''' Demultiplex and write fastq files for each cell
     :param str r1: R1 fastq file
     :param str r2: R2 fastq file
@@ -360,8 +354,13 @@ def demux(r1,r2,cell_index_file,base_dir,out_metric_file,cell_indices_used,vecto
     :param int error : Number of Indels/SNPs to tolerate in vector sequence
     :param int ncpu: Number of CPUs to use
     :param int buffer_size : Read these many MegaBytes(MB) from fastq file to memory for each read pair for each cpu
-    :param bool verbose : Whether to verbosely log
+    :param str logfile : file for logging
     '''
+    ## Set up logging
+    logger = logging.getLogger("demultiplex_cells")
+    logger.setLevel(logging.DEBUG)
+    LOG = logging.FileHandler(logfile)
+    logger.addHandler(LOG)
 
     wts                = bool(wts)
     return_demux_rate  = bool(return_demux_rate)
@@ -376,6 +375,18 @@ def demux(r1,r2,cell_index_file,base_dir,out_metric_file,cell_indices_used,vecto
     METRICS = {}
     
     assert instrument.upper() in ["NEXTSEQ","MISEQ/HISEQ"], "Incorrect instrument specification"
+
+    logger.info("Running Demux with args : \n")
+    logger.info("WTS : {}".format(wts))
+    logger.info("Instrument : {}".format(instrument))
+    logger.info("Cell Index Length : {}".format(cell_index_len))
+    logger.info("UMI Length: {}".format(umi_len))
+    logger.info("EditDist Allowed: {}".format(editdist))
+    logger.info("Errors Tolerated in Vector: {}".format(error))
+    logger.info("Num CPUs used: {}".format(ncpu))
+    logger.info("Buffer size {} MB".format(buffer_size/1024*1024))
+    logger.info("---"*10)
+    logger.info("\n")
     
     multiplex_len = cell_index_len + umi_len
     compile_regex(wts,instrument,multiplex_len,vector,error)
@@ -432,8 +443,7 @@ def demux(r1,r2,cell_index_file,base_dir,out_metric_file,cell_indices_used,vecto
                 FASTQS[cell].write(b"\n")
                 
         nchunk += 1
-        if verbose:
-            logger.info("Processed {} read fragments".format(total_reads))
+        logger.info("Processed {} read fragments".format(total_reads))
 
     # write final metrics
     # 1. Per cell level
@@ -456,12 +466,15 @@ def demux(r1,r2,cell_index_file,base_dir,out_metric_file,cell_indices_used,vecto
         FASTQS[cell].close()
     close_fh(f,f2)
 
+    logger.info("---"*10)
+    logger.info("Demux Finished")
     if return_demux_rate:
         passed_reads = float(total_reads - reads_dropped_all_N - \
                              reads_dropped_cellid_not_extracted - \
                              reads_dropped_cellid_not_matching_oligo - \
                              reads_dropped_lt_25bp)
         return passed_reads/total_reads
-        
+
+
 if __name__ == '__main__':
     demux(*sys.argv[1:])

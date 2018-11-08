@@ -98,6 +98,10 @@ class DeMultiplexer(luigi.Task):
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
                                               '.verification.txt')
+        self.logfile = os.path.join(self.logdir,
+                                    self.__class__.__name__ + '.' +
+                                    self.sample_name +'.log.txt')
+        
     def requires(self):
         ''' We need the ExtractMultiplexRegion task to be finished
         '''
@@ -112,7 +116,7 @@ class DeMultiplexer(luigi.Task):
         return_demux_rate = True
         demux_rate = demux(self.R1_fastq,self.R2_fastq,self.cell_index_file,self.sample_dir,self.temp_metric_file,
                            config().cell_indices_used,self.vector_sequence,self.instrument,is_wts,return_demux_rate,
-                           self.cell_index_len,self.mt_len,config().editdist,self.num_errors,self.num_cores,config().buffer_size)
+                           self.cell_index_len,self.mt_len,config().editdist,self.num_errors,self.num_cores,config().buffer_size,self.logfile)
         # check if we have enough reads to go forward
         if demux_rate < 0.10:
             raise UserWarning("demultiplex_cells:< 10% of reads demultiplexed for sample : {sample}".format(sample=self.sample_name))
@@ -196,13 +200,19 @@ class Alignment(luigi.Task):
         self.cell_dir = os.path.join(self.sample_dir,'Cell%i_%s'%(self.cell_num,
                                                                   self.cell_index))
         self.bam = os.path.join(self.cell_dir,'Aligned.sortedByCoord.out.bam')
-        self.logfile = os.path.join(self.cell_dir,'star_align.log')
+
         self.target_dir = os.path.join(self.sample_dir,'targets')
+        self.logdir = os.path.join(self.sample_dir,'logs')        
         ## The verification file for this task
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
                                               '.'+str(self.cell_num)+
                                               '.verification.txt')
+        self.logfile = os.path.join(self.logdir,
+                                    self.__class__.__name__ + "." +
+                                    self.sample_name +
+                                    '.' + str(self.cell_num)+'.log.txt')
+        
     def requires(self):
         ''' Task requires loading of GenomeIndex and Demultiplexing of Fastqs
         '''
@@ -269,9 +279,9 @@ class CountMT(luigi.Task):
                                               '.'+str(self.cell_num)+
                                               '.verification.txt')
         self.logfile = os.path.join(self.logdir,
-                                    self.__class__.__name__ +
+                                    self.__class__.__name__ + "." +
                                     self.sample_name +
-                                    '.'+str(self.cell_num)+'.log.txt')
+                                    '.' + str(self.cell_num)+'.log.txt')
 
     def requires(self):
         ''' Requirement is the completion of the Alignment task
