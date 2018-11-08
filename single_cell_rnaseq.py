@@ -295,7 +295,7 @@ class CountMT(luigi.Task):
         if not is_file_empty(self.cell_fastq): ## Make sure the file is not empty
             if config().seqtype.upper() == 'WTS':
                 count_umis_wts(GENE_TREE,self.bam,self.outfile,
-                               self.metricsfile,self.logfile)
+                               self.metricsfile,self.logfile,self.num_cores)
             else:
                 count_umis(GENE_HASH,config().primer_file,self.bam,
                            self.outfile_primer,self.outfile,
