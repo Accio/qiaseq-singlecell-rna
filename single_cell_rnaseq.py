@@ -142,7 +142,7 @@ class LoadGenomeIndex(luigi.Task):
         '''
         super(LoadGenomeIndex,self).__init__(*args,**kwargs)
         self.runid = os.path.basename(os.path.basename(self.output_dir))        
-        self.target_dir = os.path.join('/home/qiauser/{}'.format(self.runid),'targets')
+        self.target_dir = os.path.join(self.output_dir,'targets')
         if not os.path.exists(self.target_dir):
             os.makedirs(self.target_dir)
         ## The verification file for this task
