@@ -237,8 +237,8 @@ class Alignment(luigi.Task):
         '''
         return luigi.LocalTarget(self.verification_file)
 
-class CountMT(luigi.Task):
-    ''' Task for counting MTs, presumably this is the final step
+class CountUMI(luigi.Task):
+    ''' Task for counting UMIs, presumably this is the final step
     which gives us a Primer/Gene x Cell count matrix file
     Will likely have some wrapper task to enapsulate this to parallelize
     by Cells
@@ -264,7 +264,7 @@ class CountMT(luigi.Task):
     def __init__(self,*args,**kwargs):
         ''' Class constructor
         '''
-        super(CountMT,self).__init__(*args,**kwargs)
+        super(CountUMI,self).__init__(*args,**kwargs)
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
         self.cell_dir = os.path.join(self.sample_dir,'Cell%i_%s'%(self.cell_num,self.cell_index))
         self.bam = os.path.join(self.cell_dir,'Aligned.sortedByCoord.out.bam')
@@ -311,7 +311,7 @@ class CountMT(luigi.Task):
         return luigi.LocalTarget(self.verification_file)
 
 class JoinCountFiles(luigi.Task):
-    ''' Task for joining MT count files
+    ''' Task for joining UMI count and metric files
     '''
     # Parameters
     R1_fastq = luigi.Parameter()
@@ -358,7 +358,7 @@ class JoinCountFiles(luigi.Task):
 
     
     def requires(self):
-        ''' Dependncies are the completion of the individual MT counting tasks
+        ''' Dependncies are the completion of the individual UMI counting tasks
         for each cell
         '''
         ## Schedule the dependencies first
@@ -369,7 +369,7 @@ class JoinCountFiles(luigi.Task):
                 cell_num,cell_index))
             cell_fastq = os.path.join(cell_dir,'cell_'+str(cell_num)+
                                       '_R1.fastq')
-            dependencies.append(CountMT(R1_fastq=self.R1_fastq,
+            dependencies.append(CountUMI(R1_fastq=self.R1_fastq,
                                         R2_fastq=self.R2_fastq,
                                         output_dir=self.output_dir,
                                         sample_name=self.sample_name,
