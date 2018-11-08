@@ -428,8 +428,8 @@ def demux(r1,r2,cell_index_file,base_dir,out_metric_file,cell_indices_used,vecto
                     cell_metrics[cell][metric] += temp_cell_metrics[cell][metric]
 
                 out_r1 = b"\n".join(trimmed_r1_lines[cell])
-                FASTQS[cell_index].write(out_r1)
-                FASTQS[cell_index].write(b"\n")
+                FASTQS[cell].write(out_r1)
+                FASTQS[cell].write(b"\n")
                 
         nchunk += 1
         if verbose:
