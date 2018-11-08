@@ -434,13 +434,13 @@ def demux(r1,r2,cell_index_file,base_dir,out_metric_file,cell_indices_used,vecto
             reads_dropped_cellid_not_matching_oligo += metrics[4]
             reads_dropped_lt_25bp                   += metrics[5]
             
-            for cell in temp_cell_metrics: # accumulate cell specific                
-                for metric in temp_cell_metrics[cell]:
-                    cell_metrics[cell][metric] += temp_cell_metrics[cell][metric]
-
-                out_r1 = b"\n".join(trimmed_r1_lines[cell])
-                FASTQS[cell].write(out_r1)
-                FASTQS[cell].write(b"\n")
+            for cell_index in temp_cell_metrics: # accumulate cell specific
+                for metric in temp_cell_metrics[cell_index]:
+                    cell_metrics[cell_index][metric] += temp_cell_metrics[cell_index][metric]
+                if trimmed_r1_lines[cell_index]:   # list has atleast 1 element
+                    out_r1 = b"\n".join(trimmed_r1_lines[cell_index])
+                    FASTQS[cell_index].write(out_r1)
+                    FASTQS[cell_index].write(b"\n")
                 
         nchunk += 1
         logger.info("Processed {} read fragments".format(total_reads))
@@ -448,8 +448,8 @@ def demux(r1,r2,cell_index_file,base_dir,out_metric_file,cell_indices_used,vecto
     # write final metrics
     # 1. Per cell level
     metrics_to_write = [CELL_READS_TOTAL, CELL_AFTER_QC]
-    for cell,mfile in METRICS.items():
-        write_metrics(mfile,cell_metrics[cell],metrics_to_write)
+    for cell_index,mfile in METRICS.items():
+        write_metrics(mfile,cell_metrics[cell_index],metrics_to_write)
 
     # 2. On a Sample Index level
     global OVERALL_DROPPED_CELLID_MISMATCH
@@ -462,8 +462,8 @@ def demux(r1,r2,cell_index_file,base_dir,out_metric_file,cell_indices_used,vecto
     write_metrics(out_metric_file, metric_dict, metric_dict.keys())
 
     # close file handles
-    for cell in METRICS:
-        FASTQS[cell].close()
+    for cell_index in FASTQS:
+        FASTQS[cell_index].close()
     close_fh(f,f2)
 
     logger.info("---"*10)
