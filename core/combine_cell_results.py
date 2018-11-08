@@ -72,19 +72,10 @@ def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sam
     metric_dict_per_cell = defaultdict(lambda:defaultdict(int))
     do_not_add_metrics = ['detected genes']
     ## Read temp metrics file to get total reads , reads dropped during demultiplexing
-    first = True
     with open(temp_metric_file,'r') as M:
         for line in M:
             metric,val = line.strip('\n').split(':')
             metric_dict[metric] = float(val)
-            if first:
-                ## Get all N reads
-                all_N_file = glob.glob(os.path.join(basedir,"*_multiplex.metrics.txt"))[0]
-                with open(all_N_file,'r') as IN:
-                    for line in IN:
-                        metric,val = line.strip('\n').split(':')
-                        metric_dict[metric] = float(val)
-                first = False       
             
     ## Get read stats for each cell as well as aggregating for sample level
     for f in files_to_merge:
@@ -105,8 +96,7 @@ def merge_metric_files(basedir,temp_metric_file,metric_file,metric_file_cell,sam
         with open(f,'r') as IN:
             for line in IN:
                 metric,val = line.strip('\n').split(':')
-                metric_dict_per_cell[cell][metric] = int(val)
-                
+                metric_dict_per_cell[cell][metric] = int(val)                
             
     ## Write metrics for the sample
     write_metrics_sample(metric_dict,metric_file,editdistance,wts)
@@ -124,8 +114,7 @@ def write_metrics_sample(sample_metrics,outfile,editdistance,wts):
     ## Check to make sure the metrics add up
     reads_total = int(sample_metrics['reads total'])
     ## Updated metrics to account for all N reads
-    dropped_metric = 'reads dropped, cell id not matching a used oligo within edit distance {} bp'.format(editdistance) 
-    sample_metrics['reads dropped, cell id not extracted'] = sample_metrics['reads dropped, cell id not extracted'] - sample_metrics['reads dropped, all NNNNNN sequence']
+    dropped_metric = 'reads dropped, cell id not matching a used oligo within edit distance {} bp'.format(editdistance)
     reads_dropped_demultiplexing = (
         int(sample_metrics['reads dropped, cell id not extracted']) + \
         int(sample_metrics[dropped_metric]) + \

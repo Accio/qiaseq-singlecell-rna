@@ -1,8 +1,30 @@
 import sqlite3
 import os
+import io
+import gzip
 from intervaltree import IntervalTree
 from collections import defaultdict
-from extract_multiplex_region import open_by_magic
+
+
+def open_by_magic(filename):
+    '''
+    Adapted from : http://stackoverflow.com/questions/18367511/how-do-i-automatically-handle-decompression-when-reading-a-file-in-python
+    with modifications
+    Uses the initial bytes of a file to detect the file compression.
+
+    :param str filename: path to the input file
+    :return: the appropriate file handle for reading
+    :rtype: file object
+    '''
+    ## Add more magic strs here for various compressions
+    magic_dict = {"\x1f\x8b\x08":gzip.open}
+    max_len = max(len(x) for x in magic_dict)
+    with open(filename) as f:
+        file_start = f.read(max_len)
+        for magic,fn in magic_dict.items():
+            if file_start.startswith(magic):
+                return io.BufferedReader(fn(filename))
+            return open(filename,'r') ## Otherwise just a regular file
 
 def convert_strand(strand):
     ''' Convert strand to QIAGEN format

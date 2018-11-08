@@ -5,17 +5,15 @@ import gzip
 import sys
 import luigi
 import logging
-import sqlite3
 import ConfigParser
 import datetime
 ## Modules from this project
 sys.path.append(os.path.join(os.path.dirname(
     os.path.realpath(__file__)),'core'))
-from extract_multiplex_region import extract_region
-from demultiplex_cells import create_cell_fastqs
-from align_transcriptome import star_alignment,star_load_index,star_remove_index,annotate_bam_umi,run_cmd
-from count_mt import count_umis,count_umis_wts
-from merge_mt_files import merge_count_files,merge_metric_files
+from demultiplex_cells import demux
+from align_transcriptome import star_alignment,star_load_index,star_remove_index,run_cmd
+from count_umi import count_umis,count_umis_wts
+from combine_cell_results import merge_count_files,merge_metric_files
 from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics,clean_for_clustering,check_metric_counts
 from create_excel_sheet import write_excel_workbook
 from create_run_summary import is_file_empty, write_run_summary, calc_stats_gene_count, calc_median_cell_metrics
@@ -49,6 +47,7 @@ class config(luigi.Config):
     annotation = luigi.Parameter(description="The genome annotation version",default="Unknown")
     editdist = luigi.IntParameter(description="Whether to allow a single base mismatch in the cell index")
     cell_indices_used = luigi.Parameter(description="Comma delimeted list of Cell Ids to use , i.e. C1,C2,C3,etc. If using all cell indices in the file , please specify 'all' here.")
+    buffer_size       = luigi.IntParameter(description="Read this many MB from fastq file to memory for each read pair for each cpu",default=16)
     
 class MyExtTask(luigi.ExternalTask):
     ''' Checks whether the file specified exists on disk
@@ -57,79 +56,10 @@ class MyExtTask(luigi.ExternalTask):
     def output(self):
         return luigi.LocalTarget(self.file_loc)
 
-class ExtractMultiplexRegion(luigi.Task):
-    ''' Task for extracting the <cell_index><mt> region
-    from R2 reads
-    '''
-    ## The parameters for this task
-    R1_fastq = luigi.Parameter()
-    R2_fastq = luigi.Parameter()
-    output_dir = luigi.Parameter()
-    sample_name = luigi.Parameter()
-    cell_index_file = luigi.Parameter()
-    vector_sequence = luigi.Parameter()
-    isolator = luigi.Parameter()
-    cell_index_len = luigi.IntParameter()
-    mt_len = luigi.IntParameter()
-    num_cores = luigi.IntParameter()
-    num_errors = luigi.IntParameter()
-    instrument = luigi.Parameter()
-
-    def __init__(self,*args,**kwargs):
-        ''' The constructor
-        '''
-        super(ExtractMultiplexRegion,self).__init__(*args,**kwargs)
-        ## Set up folder structure
-        self.sample_dir = os.path.join(self.output_dir,self.sample_name)
-        if not os.path.exists(self.sample_dir):
-            os.makedirs(self.sample_dir)
-        ## Create a directory for storing verification files for task completion
-        self.target_dir = os.path.join(self.sample_dir,'targets')
-        if not os.path.exists(self.target_dir):
-            os.makedirs(self.target_dir)
-        ## Create a directory for storing log files
-        self.logdir = os.path.join(self.sample_dir,'logs')
-        if not os.path.exists(self.logdir):
-            os.makedirs(self.logdir)
-        ## The verification file for this task
-        self.verification_file = os.path.join(self.target_dir,
-                                              self.__class__.__name__+
-                                              '.verification.txt')
-        self.multiplex_file = os.path.join(self.sample_dir,
-                                           '%s_multiplex_region.txt'%self.sample_name)
-        self.multiplex_metrics = os.path.join(self.sample_dir,
-                                           '%s_multiplex.metrics.txt'%self.sample_name)
-    def requires(self):
-        ''' Dependencies for this task
-        R2 fastq file must be present
-        '''
-        return MyExtTask(self.R2_fastq)
-
-    def run(self):
-        ''' Run the function to extract the multiplex region,
-        i.e. the <cell_index><MT> sequence
-        The resultant file is a tsv <read_id> <cell_index> <MT>
-        '''
-        logger.info("Started Task: {x}-{y} {z}".format(x='ExtractMultiplexRegion',y=self.sample_name,z=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-        extract_region(self.vector_sequence,
-                       self.num_errors,self.cell_index_len,
-                       self.mt_len,self.isolator,self.R2_fastq,
-                       self.multiplex_file,self.multiplex_metrics,
-                       self.num_cores,self.instrument)
-        ## Create the verification file
-        with open(self.verification_file,'w') as OUT:
-            print >> OUT,"verification"
-        logger.info("Finished Task: {x}-{y} {z}".format(x='ExtractMultiplexRegion',y=self.sample_name,z=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
- 
-    def output(self):
-        ''' Check for the existence of the verification file
-        '''
-        return luigi.LocalTarget(self.verification_file)
-
 class DeMultiplexer(luigi.Task):
     ''' Task for demultiplexing a fastq into individual cells
     '''
-    ## The parameters for this task
+    ## The parameters for this task                                      
     R1_fastq = luigi.Parameter()
     R2_fastq = luigi.Parameter()
     output_dir = luigi.Parameter()
@@ -145,36 +75,52 @@ class DeMultiplexer(luigi.Task):
 
     def __init__(self,*args,**kwargs):
         ''' Class constructor
-        '''
+        '''        
         super(DeMultiplexer,self).__init__(*args,**kwargs)
+        # set up folder structure
+        # sample level directory
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
-        self.temp_metric_file = os.path.join(self.sample_dir,
-                                       '%s_read_stats.temp.txt'%self.sample_name)
+        if not os.path.exists(self.sample_dir):
+            os.makedirs(self.sample_dir)
+        # for storing verification files for task completion check
         self.target_dir = os.path.join(self.sample_dir,'targets')
+        if not os.path.exists(self.target_dir):
+            os.makedirs(self.target_dir)
+        # for storing some log files    
+        self.logdir = os.path.join(self.sample_dir,'logs')
+        if not os.path.exists(self.logdir):
+            os.makedirs(self.logdir)
+
+        # metric file from this task    
+        self.temp_metric_file = os.path.join(self.sample_dir,
+                                       '%s_read_stats.temp.txt'%self.sample_name)            
         ## The verification file for this task
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
                                               '.verification.txt')
-        self.multiplex_file = os.path.join(self.sample_dir,
-                                           '%s_multiplex_region.txt'%self.sample_name)
-
+        self.logfile = os.path.join(self.logdir,
+                                    self.__class__.__name__ + '.' +
+                                    self.sample_name +'.log.txt')
+        
     def requires(self):
         ''' We need the ExtractMultiplexRegion task to be finished
         '''
-        return self.clone(ExtractMultiplexRegion)
+        yield MyExtTask(self.R2_fastq)
+        yield MyExtTask(self.R1_fastq)       
 
     def run(self):
         ''' Work entails demultiplexing of Fastqs
         '''
         logger.info("Started Task: {x}-{y} {z}".format(x='DeMultiplexer',y=self.sample_name,z=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-        if config().seqtype.upper() == 'WTS':
-            create_cell_fastqs(self.sample_dir,self.temp_metric_file,
-                               self.cell_index_file,self.multiplex_file,
-                               self.R1_fastq,config().editdist,config().cell_indices_used,True)
-        else:
-            create_cell_fastqs(self.sample_dir,self.temp_metric_file,
-                               self.cell_index_file,
-                               self.multiplex_file,self.R1_fastq,config().editdist,config().cell_indices_used)
+        is_wts = config().seqtype.upper() == "WTS"
+        return_demux_rate = True
+        demux_rate = demux(self.R1_fastq,self.R2_fastq,self.cell_index_file,self.sample_dir,self.temp_metric_file,
+                           config().cell_indices_used,self.vector_sequence,self.instrument,is_wts,return_demux_rate,
+                           self.cell_index_len,self.mt_len,config().editdist,self.num_errors,self.num_cores,config().buffer_size,self.logfile)
+        # check if we have enough reads to go forward
+        if demux_rate < 0.10:
+            raise UserWarning("demultiplex_cells:< 10% of reads demultiplexed for sample : {sample}".format(sample=self.sample_name))
+        
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
@@ -196,7 +142,7 @@ class LoadGenomeIndex(luigi.Task):
         '''
         super(LoadGenomeIndex,self).__init__(*args,**kwargs)
         self.runid = os.path.basename(os.path.basename(self.output_dir))        
-        self.target_dir = os.path.join('/home/qiauser/{}'.format(self.runid),'targets')
+        self.target_dir = os.path.join(self.output_dir,'targets')
         if not os.path.exists(self.target_dir):
             os.makedirs(self.target_dir)
         ## The verification file for this task
@@ -251,18 +197,22 @@ class Alignment(luigi.Task):
         '''
         super(Alignment,self).__init__(*args,**kwargs)
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
-        self.multiplex_file = os.path.join(self.sample_dir,
-                                           '%s_multiplex_region.txt'%self.sample_name)
-
         self.cell_dir = os.path.join(self.sample_dir,'Cell%i_%s'%(self.cell_num,
                                                                   self.cell_index))
         self.bam = os.path.join(self.cell_dir,'Aligned.sortedByCoord.out.bam')
+
         self.target_dir = os.path.join(self.sample_dir,'targets')
+        self.logdir = os.path.join(self.sample_dir,'logs')        
         ## The verification file for this task
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
                                               '.'+str(self.cell_num)+
                                               '.verification.txt')
+        self.logfile = os.path.join(self.logdir,
+                                    self.__class__.__name__ + "." +
+                                    self.sample_name +
+                                    '.' + str(self.cell_num)+'.log.txt')
+        
     def requires(self):
         ''' Task requires loading of GenomeIndex and Demultiplexing of Fastqs
         '''
@@ -275,9 +225,8 @@ class Alignment(luigi.Task):
         logger.info("Started Task: {x}-{y}-{z} {v}".format(x='STAR Alignment',y=self.sample_name,z=self.cell_num,v=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
         if not is_file_empty(self.cell_fastq): ## Make sure the file is not empty
             ## Do the alignment
-            star_alignment(config().star,config().genome_dir,
-                           os.path.join(self.cell_dir,''),config().star_params,
-                           self.cell_fastq)
+            star_alignment(config().star,config().genome_dir,os.path.join(self.cell_dir,''),self.logfile,
+                           config().star_params,self.cell_fastq)
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
@@ -288,8 +237,8 @@ class Alignment(luigi.Task):
         '''
         return luigi.LocalTarget(self.verification_file)
 
-class CountMT(luigi.Task):
-    ''' Task for counting MTs, presumably this is the final step
+class CountUMI(luigi.Task):
+    ''' Task for counting UMIs, presumably this is the final step
     which gives us a Primer/Gene x Cell count matrix file
     Will likely have some wrapper task to enapsulate this to parallelize
     by Cells
@@ -315,7 +264,7 @@ class CountMT(luigi.Task):
     def __init__(self,*args,**kwargs):
         ''' Class constructor
         '''
-        super(CountMT,self).__init__(*args,**kwargs)
+        super(CountUMI,self).__init__(*args,**kwargs)
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
         self.cell_dir = os.path.join(self.sample_dir,'Cell%i_%s'%(self.cell_num,self.cell_index))
         self.bam = os.path.join(self.cell_dir,'Aligned.sortedByCoord.out.bam')
@@ -330,9 +279,9 @@ class CountMT(luigi.Task):
                                               '.'+str(self.cell_num)+
                                               '.verification.txt')
         self.logfile = os.path.join(self.logdir,
-                                    self.__class__.__name__ +
+                                    self.__class__.__name__ + "." +
                                     self.sample_name +
-                                    '.'+str(self.cell_num)+'.log.txt')
+                                    '.' + str(self.cell_num)+'.log.txt')
 
     def requires(self):
         ''' Requirement is the completion of the Alignment task
@@ -346,7 +295,7 @@ class CountMT(luigi.Task):
         if not is_file_empty(self.cell_fastq): ## Make sure the file is not empty
             if config().seqtype.upper() == 'WTS':
                 count_umis_wts(GENE_TREE,self.bam,self.outfile,
-                               self.metricsfile,self.logfile)
+                               self.metricsfile,self.logfile,self.num_cores)
             else:
                 count_umis(GENE_HASH,config().primer_file,self.bam,
                            self.outfile_primer,self.outfile,
@@ -362,7 +311,7 @@ class CountMT(luigi.Task):
         return luigi.LocalTarget(self.verification_file)
 
 class JoinCountFiles(luigi.Task):
-    ''' Task for joining MT count files
+    ''' Task for joining UMI count and metric files
     '''
     # Parameters
     R1_fastq = luigi.Parameter()
@@ -409,7 +358,7 @@ class JoinCountFiles(luigi.Task):
 
     
     def requires(self):
-        ''' Dependncies are the completion of the individual MT counting tasks
+        ''' Dependncies are the completion of the individual UMI counting tasks
         for each cell
         '''
         ## Schedule the dependencies first
@@ -420,7 +369,7 @@ class JoinCountFiles(luigi.Task):
                 cell_num,cell_index))
             cell_fastq = os.path.join(cell_dir,'cell_'+str(cell_num)+
                                       '_R1.fastq')
-            dependencies.append(CountMT(R1_fastq=self.R1_fastq,
+            dependencies.append(CountUMI(R1_fastq=self.R1_fastq,
                                         R2_fastq=self.R2_fastq,
                                         output_dir=self.output_dir,
                                         sample_name=self.sample_name,
