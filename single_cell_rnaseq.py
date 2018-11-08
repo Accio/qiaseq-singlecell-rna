@@ -12,8 +12,8 @@ sys.path.append(os.path.join(os.path.dirname(
     os.path.realpath(__file__)),'core'))
 from demultiplex_cells import demux
 from align_transcriptome import star_alignment,star_load_index,star_remove_index,run_cmd
-from count_mt import count_umis,count_umis_wts
-from merge_mt_files import merge_count_files,merge_metric_files
+from count_umi import count_umis,count_umis_wts
+from combine_cell_results import merge_count_files,merge_metric_files
 from combine_sample_results import combine_count_files,combine_cell_metrics,combine_sample_metrics,clean_for_clustering,check_metric_counts
 from create_excel_sheet import write_excel_workbook
 from create_run_summary import is_file_empty, write_run_summary, calc_stats_gene_count, calc_median_cell_metrics

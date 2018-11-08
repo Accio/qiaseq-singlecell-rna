@@ -3,7 +3,7 @@ import glob
 import os
 import natsort
 from collections import defaultdict,OrderedDict
-from merge_mt_files import float_to_string
+from combine_cell_results import float_to_string
 
 class MyOrderedDict(OrderedDict):
     def __missing__(self,key):

@@ -6,7 +6,7 @@ import ConfigParser
 import glob
 import gzip
 import subprocess
-from merge_mt_files import float_to_string
+from combine_cell_files import float_to_string
 
 def read_sample_metrics(sample_metrics_file):
     '''
