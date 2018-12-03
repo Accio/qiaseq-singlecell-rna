@@ -203,7 +203,8 @@ class Alignment(luigi.Task):
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
         self.cell_dir = os.path.join(self.sample_dir,'Cell%i_%s'%(self.cell_num,
                                                                   self.cell_index))
-        self.bam = os.path.join(self.cell_dir,'Aligned.sortedByCoord.out.bam')
+        self.bam_prefix = os.path.join(self.cell_dir,'cell_'+str(self.cell_num))
+        self.bam        = os.path.join(self.cell_dir,'cell_'+str(self.cell_num)+'.bam')
 
         self.target_dir = os.path.join(self.sample_dir,'targets')
         self.logdir = os.path.join(self.sample_dir,'logs')        
@@ -229,7 +230,7 @@ class Alignment(luigi.Task):
         logger.info("Started Task: {x}-{y}-{z} {v}".format(x='STAR Alignment',y=self.sample_name,z=self.cell_num,v=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
         if not is_file_empty(self.cell_fastq): ## Make sure the file is not empty
             ## Do the alignment
-            star_alignment(config().star,config().genome_dir,os.path.join(self.cell_dir,''),self.logfile,
+            star_alignment(config().star,config().genome_dir,self.bam_prefix,self.logfile,
                            config().star_params,self.cell_fastq)
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
@@ -271,12 +272,18 @@ class CountUMI(luigi.Task):
         super(CountUMI,self).__init__(*args,**kwargs)
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
         self.cell_dir = os.path.join(self.sample_dir,'Cell%i_%s'%(self.cell_num,self.cell_index))
-        self.bam = os.path.join(self.cell_dir,'Aligned.sortedByCoord.out.bam')
+
+        self.bam_prefix = os.path.join(self.cell_dir,'cell_'+str(self.cell_num))
+        self.bam        = os.path.join(self.cell_dir,'cell_'+str(self.cell_num)+'.bam')
+        
         self.outfile = os.path.join(self.cell_dir,'umi_count.txt')
         self.outfile_primer = os.path.join(self.cell_dir,'umi_count.primers.txt')
+        
         self.metricsfile = os.path.join(self.cell_dir,'read_stats.txt')
+        
         self.target_dir = os.path.join(self.sample_dir,'targets')
         self.logdir = os.path.join(self.sample_dir,'logs')
+        
         ## The verification file for this task
         self.verification_file = os.path.join(self.target_dir,
                                               self.__class__.__name__+
