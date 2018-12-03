@@ -203,8 +203,8 @@ class Alignment(luigi.Task):
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
         self.cell_dir = os.path.join(self.sample_dir,'Cell%i_%s'%(self.cell_num,
                                                                   self.cell_index))
-        self.bam_prefix = os.path.join(self.cell_dir,'cell_'+str(self.cell_num)+'_')
-        self.bam        = os.path.join(self.cell_dir,'cell_'+str(self.cell_num)+'_Aligned.sortedByCoord.out.bam')
+        self.bam_prefix = os.path.join(self.cell_dir,'cell.'+str(self.cell_num)+'.')
+        self.bam        = os.path.join(self.cell_dir,'cell_'+str(self.cell_num)+'.Aligned.sortedByCoord.out.bam')
 
         self.target_dir = os.path.join(self.sample_dir,'targets')
         self.logdir = os.path.join(self.sample_dir,'logs')        
@@ -273,8 +273,8 @@ class CountUMI(luigi.Task):
         self.sample_dir = os.path.join(self.output_dir,self.sample_name)
         self.cell_dir = os.path.join(self.sample_dir,'Cell%i_%s'%(self.cell_num,self.cell_index))
 
-        self.bam_prefix = os.path.join(self.cell_dir,'cell_'+str(self.cell_num)+'_')
-        self.bam        = os.path.join(self.cell_dir,'cell_'+str(self.cell_num)+'_Aligned.sortedByCoord.out.bam')
+        self.bam_prefix = os.path.join(self.cell_dir,'cell.'+str(self.cell_num)+'.')
+        self.bam        = os.path.join(self.cell_dir,'cell.'+str(self.cell_num)+'.Aligned.sortedByCoord.out.bam')
         
         self.outfile = os.path.join(self.cell_dir,'umi_count.txt')
         self.outfile_primer = os.path.join(self.cell_dir,'umi_count.primers.txt')
