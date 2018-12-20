@@ -96,7 +96,7 @@ def create_gene_tree(annotation_gtf,ercc_bed,species,merge_coordinates=False):
             contents = line.strip('\n').split('\t')
             if contents[2] == 'gene':
                 chrom = contents[0]
-                if species.lower() in well_annotated and chrom not in valid_chromosomes: ## Skip contigs
+                if species.lower() in well_annotated and (chrom not in valid_chromosomes and not chrom.startswith('ERCC')): ## Skip contigs
                     continue
                 start = int(contents[3])
                 end = int(contents[4])
@@ -148,15 +148,6 @@ def create_gene_tree(annotation_gtf,ercc_bed,species,merge_coordinates=False):
 
                 else: ## Store all intervals without merging
                     genes[gene].append((start,end,chrom,strand,gene,ensembl_id))
-
-    ## ERCC info
-    with open(ercc_bed,'r') as IN:
-        for line in IN:
-            chrom,start,end,seq,strand,ercc = line.strip("\n").split("\t")
-            strand = convert_strand(strand)
-            if chrom in genes:
-                raise Exception("Duplicate ERCC names !")
-            genes[chrom].append((int(start),int(end),chrom,strand,chrom,"_"+chrom+"_"))
     
     ## Build a gene tree to store gene info
     for gene in genes:
