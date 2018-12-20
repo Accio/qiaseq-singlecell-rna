@@ -43,6 +43,7 @@ def write_excel_workbook(files_to_write,output_excel,catalog_number=None,species
             sheet_name = "metrics.by_cell_index"
         else:
             raise Exception("Invalid file name encountered !")
+        sheet_name = sheet_name[0:31] # cap sheetname to max 31 chars
         worksheet = workbook.add_worksheet(sheet_name)
         i=0
         for row in file_reader(infile):
