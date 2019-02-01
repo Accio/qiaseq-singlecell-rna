@@ -434,7 +434,7 @@ class CombineSamples(luigi.Task):
         ''' Class constructor
         '''
         super(CombineSamples,self).__init__(*args,**kwargs)
-	self.runid = os.path.basename(self.output_dir)
+        self.runid = os.path.basename(self.output_dir)
         self.primary_dir = os.path.join(self.output_dir,"primary_analysis")
         self.combined_count_file = os.path.join(self.primary_dir,'{runid}.umi_counts.gene.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))
         self.combined_count_file_primers = os.path.join(self.primary_dir,'{runid}.umi_counts.primer.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))        
@@ -502,14 +502,14 @@ class CombineSamples(luigi.Task):
         cmd1_primer = """ cat {count_file}| awk 'NR == 1; NR > 1 {{print $0 | "sort --ignore-case -V -k3,3 -k4,4 -k5,5"}}' > {temp}"""
         cmd2 = """ cp {temp} {count_file} """
         
-	if config().seqtype.upper() != 'WTS':
+        if config().seqtype.upper() != 'WTS':
             run_cmd(cmd1_primer.format(count_file=self.combined_count_file_primers,temp='temp.txt'))
             run_cmd(cmd2.format(temp='temp.txt',count_file=self.combined_count_file_primers))
         run_cmd(cmd1_gene.format(count_file=self.combined_count_file,temp='temp.txt'))
         run_cmd(cmd2.format(temp='temp.txt',count_file=self.combined_count_file))
         with open(self.verification_file,'w') as IN:
             IN.write('done\n')
-	logger.info("Finished Task: {x} {y}".format(x='CombineSamples',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+        logger.info("Finished Task: {x} {y}".format(x='CombineSamples',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
 
     def output(self):
         ''' Output from this task
@@ -687,12 +687,12 @@ class WriteExcelSheet(luigi.Task):
         ''' Class constructor
         '''
         super(WriteExcelSheet,self).__init__(*args,**kwargs)
-	self.runid = os.path.basename(self.output_dir)
+        self.runid = os.path.basename(self.output_dir)
         self.primary_dir = os.path.join(self.output_dir,"primary_analysis")
         self.combined_count_file = os.path.join(self.primary_dir,'{runid}.umi_counts.gene.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))
         self.combined_count_file_primers = os.path.join(self.primary_dir,'{runid}.umi_counts.primer.{pcatn}.txt'.format(runid=self.runid,pcatn=config().catalog_number))        
         self.combined_cell_metrics_file = os.path.join(self.primary_dir,'{}.metrics.by_cell_index.txt'.format(self.runid))
-        self.combined_sample_metrics_file = os.path.join(self.primary_dir,'{}.metrics.by_sample_index.txt'.format(self.runid))	
+        self.combined_sample_metrics_file = os.path.join(self.primary_dir,'{}.metrics.by_sample_index.txt'.format(self.runid))       
         self.combined_workbook = os.path.join(self.primary_dir,'QIAseqUltraplexRNA_{}.xlsx'.format(self.runid))
         self.run_summary_file = os.path.join(self.output_dir,'QIAseqUltraplexRNA_{}_run_summary.xlsx'.format(self.runid))
         ## The verification file for this task
