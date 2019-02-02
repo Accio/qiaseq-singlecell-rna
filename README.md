@@ -57,3 +57,10 @@ Description of the analysis pipeline and output files can be found in the ***QIA
 We recommend you run this on a machine with atleast  60 GB RAM and 16 cores. To increase/decrease parallelism please tweak the **workers** command line option and/or the **num_cores** parameter in pipeline.cfg
 
 We are using luigi (https://github.com/spotify/luigi) to trigger our workflow. This allows for re-run on failure and fault tolerance among other features. The **single_cell_rnaseq.py** contains the task definitions for the various steps involved. The logic for the tasks themselves are under core/ in different modules.  
+
+## Major edits
+
+* The code now works within an Conda environment with local intallation of STAR. No dependency on Docker is needed.
+* intervaltree version 3.x is now used
+* Mixed indentation errors are fixed from the python code
+* No shared memory is used given [apparent difficulty and potential issues](https://github.com/alexdobin/STAR/issues/277)
