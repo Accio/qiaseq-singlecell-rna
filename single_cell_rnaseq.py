@@ -163,7 +163,7 @@ class LoadGenomeIndex(luigi.Task):
         ''' Work entails loading the genome index
         '''
         logger.info("Started Task: {x} {y}".format(x='LoadGenomeIndex',y=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-        star_load_index(config().star,config().genome_dir,config().star_load_params)
+        ## star_load_index(config().star,config().genome_dir,config().star_load_params)
         ## Create the verification file
         with open(self.verification_file,'w') as OUT:
             print >> OUT,"verification"
