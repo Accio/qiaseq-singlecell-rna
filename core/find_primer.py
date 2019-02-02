@@ -53,10 +53,10 @@ def find_primer(primer_tree,read_tup):
 
     if read_is_reverse: ## The primer is mapped to the last n bases of the read , as the reads in the bam are always on the +ve strand , hence we need to see if the end of the read still falls within the primer stop site from the design file.
         loci_to_search = read_pos + (read_len-1)
-        res = primer_tree[read_chrom].search(loci_to_search-2,loci_to_search+3) ## allowing some offset in primer start loci 
+        res = primer_tree[read_chrom].envelop(loci_to_search-2,loci_to_search+3) ## allowing some offset in primer start loci 
     else:
         loci_to_search = read_pos
-        res = primer_tree[read_chrom].search(loci_to_search-2,loci_to_search+3)
+        res = primer_tree[read_chrom].envelop(loci_to_search-2,loci_to_search+3)
 
     if res:
         for i in range(len(res)):
