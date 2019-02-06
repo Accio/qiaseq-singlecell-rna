@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH -J qiagen
-#SBATCH -o qiagen.out
-#SBATCH -e qiagen.err
+#SBATCH -J qiagen-overlap
+#SBATCH -o qiagen-overlap.out
+#SBATCH -e qiagen-overlap.err
 #SBATCH -c 4
 #SBATCH --mem-per-cpu=40000
 ml load Anaconda3/4.3.1
