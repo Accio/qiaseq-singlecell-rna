@@ -15,7 +15,7 @@ Adapted from [https://github.com/qiaseq/qiaseq-singlecell-rna]. The adapted vers
 ## Run the pipeline
 
 ```bash
-bash qiagen-forSlurm.bash
+sbatch qiagen-forSlurm.bash
 ```
 
 ## Appendix
