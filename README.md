@@ -65,3 +65,7 @@ Description of the analysis pipeline and output files can be found in the ***QIA
 We recommend you run this on a machine with atleast  60 GB RAM and 16 cores. To increase/decrease parallelism please tweak the **workers** command line option and/or the **num_cores** parameter in pipeline.cfg
 
 We are using luigi (https://github.com/spotify/luigi) to trigger our workflow. This allows for re-run on failure and fault tolerance among other features. The **single_cell_rnaseq.py** contains the task definitions for the various steps involved. The logic for the tasks themselves are under core/ in different modules.  
+
+## intervaltrees .search: .envelop or .overlap
+
+Using .envelop caused many fewer reads annotated than using .overlap in `find_genes.py`. In fact, when I checked the `intervaltree` package in the docker file at [https://github.com/qiaseq/qiaseq-singlecell-rna](https://github.com/qiaseq/qiaseq-singlecell-rna), it turned out the `search` function had `strict=False`, suggesting that `overlap` should be used rather than `envelop`.
